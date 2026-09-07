@@ -10,6 +10,15 @@ async function listProjects(req, res) {
   }
 }
 
+  async function getProject(req, res) {
+    try {
+      const project = await projectService.getProject(req.user, req.params.id);
+      res.json(project);
+    } catch (err) {
+      handleServiceError(res, err);
+    }
+  }
+
 async function createProject(req, res) {
   try {
     const project = await projectService.createProject(req.user, req.body);
@@ -38,3 +47,4 @@ async function deleteProject(req, res) {
 }
 
 module.exports = { listProjects, createProject, updateProject, deleteProject };
+module.exports = { listProjects, getProject, createProject, updateProject, deleteProject };

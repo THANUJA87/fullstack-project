@@ -19,6 +19,7 @@ async function request(path, options = {}) {
 
 export const api = {
   login: (email, password) => request('/api/auth/login', { method: 'POST', body: JSON.stringify({ email, password }) }),
+  register: (body) => request('/api/auth/register', { method: 'POST', body: JSON.stringify(body) }),
   me: () => request('/api/me'),
   getProjects: () => request('/api/projects'),
   createProject: (body) => request('/api/projects', { method: 'POST', body: JSON.stringify(body) }),
@@ -27,15 +28,17 @@ export const api = {
   getUsers: () => request('/api/users'),
   createUser: (body) => request('/api/users', { method: 'POST', body: JSON.stringify(body) }),
   updateUserStatus: (id, isActive) => request(`/api/users/${id}/status`, { method: 'PATCH', body: JSON.stringify({ isActive }) }),
+  updateUser: (id, body) => request(`/api/users/${id}`, { method: 'PATCH', body: JSON.stringify(body) }),
+  assignUserTenant: (id, tenantId) => request(`/api/users/${id}/tenant`, { method: 'PATCH', body: JSON.stringify({ tenantId }) }),
   setUserPermissions: (id, permissions) => request(`/api/users/${id}/permissions`, { method: 'PUT', body: JSON.stringify({ permissions }) }),
   getTenants: () => request('/api/tenants'),
   getPermissions: () => request('/api/permissions'),
+  getRolePermissions: (role) => request(`/api/permissions/roles/${role}/permissions`),
+  updateRolePermissions: (role, permissions) => request(`/api/permissions/roles/${role}/permissions`, { method: 'PUT', body: JSON.stringify({ permissions }) }),
   createPermission: (body) => request('/api/permissions', { method: 'POST', body: JSON.stringify(body) }),
   deletePermission: (key) => request(`/api/permissions/${encodeURIComponent(key)}`, { method: 'DELETE' }),
 };
 
 export function hasPermission(user, permission) {
-  if (!user) return false;
-  if (user.role === 'SUPER_ADMIN' || user.role === 'ADMIN') return true;
-  return user.permissions?.includes(permission);
+  return Boolean(user?.permissions?.includes(permission));
 }

@@ -27,7 +27,7 @@ npm install
 npm run dev
 ```
 
-The API runs at `http://localhost:4000`. With `AUTO_SEED=true`, demo users and sample projects are created automatically.
+The API runs at `http://localhost:4000`. With `AUTO_SEED=true`, the schema and permission catalog are created automatically. The first user can create a workspace from the frontend.
 
 ### 3. Frontend
 
@@ -39,16 +39,9 @@ npm run dev
 
 Open `http://localhost:5173`.
 
-## Demo accounts
+## Account creation
 
-All passwords: `password123`
-
-| Account | Role | Capabilities |
-|---|---|---|
-| `super@northstar.local` | Super Admin | All tenants, manage Admins, manage permissions |
-| `admin@northstar.local` | Admin | Northstar Studio — full project CRUD, manage Agents |
-| `agent@northstar.local` | Agent | View projects, update only (no create/delete) |
-| `admin@acme.local` | Admin | Acme Labs — separate tenant for isolation demo |
+The sign-in screen supports creating an account. Public registration always creates an `AGENT`; role and permission changes remain protected administrative operations.
 
 ## Features
 
@@ -75,7 +68,7 @@ backend/
     middleware/          # Auth, RBAC, rate limiting
     routes/              # API routes
     services/            # Business logic
-    seed/                # Demo data
+    seed/                # Schema, permissions, and development seed data
     utils/               # Helpers
 frontend/
   src/

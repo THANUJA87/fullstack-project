@@ -8,22 +8,14 @@ Multi-tenant project management REST API with JWT authentication, RBAC, permissi
 2. Copy `.env.example` to `.env` and set `DATABASE_URL` and `JWT_SECRET`.
 3. Run `npm install`, then `npm run dev`.
 
-With `AUTO_SEED=true`, the API creates the schema and demo data on startup.
-
-## Demo accounts
-
-| Email | Password | Role |
-|---|---|---|
-| `super@northstar.local` | `password123` | Super Admin (all tenants) |
-| `admin@northstar.local` | `password123` | Admin (Northstar Studio) |
-| `agent@northstar.local` | `password123` | Agent (update permission only) |
-| `admin@acme.local` | `password123` | Admin (Acme Labs) |
+With `AUTO_SEED=true`, the API creates the schema and permission catalog on startup. It does not create users or sample projects.
 
 ## API endpoints
 
 | Method | Path | Access |
 |---|---|---|
 | POST | `/api/auth/login` | Public (rate limited) |
+| POST | `/api/auth/register` | Public (rate limited); creates an AGENT account in a new tenant |
 | GET | `/api/me` | Authenticated |
 | GET/POST | `/api/tenants` | Super Admin |
 | GET/POST/PATCH/DELETE | `/api/projects` | Role + permissions |
@@ -53,7 +45,7 @@ backend/
     middleware/          # Auth, authorization, rate limiting
     routes/              # Route definitions
     services/            # Business logic & DB queries
-    seed/                # Demo data seeder
+    seed/                # Schema, permissions, and development seed data
     utils/               # Helpers (response, tenant filter)
 ```
 

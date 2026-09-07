@@ -6,15 +6,13 @@ const allowRoles = (...roles) => (req, res, next) => (
     : sendError(res, 403, 'Your role cannot perform this action')
 );
 
-const requirePermission = (permission) => (req, res, next) => {
-  if (
-    req.user.role === 'SUPER_ADMIN'
-    || req.user.role === 'ADMIN'
-    || req.user.permissions?.includes(permission)
-  ) {
+const authorize = (permission) => (req, res, next) => {
+  if (req.user.permissions?.includes(permission)) {
     return next();
   }
   return sendError(res, 403, `Missing permission: ${permission}`);
 };
 
-module.exports = { allowRoles, requirePermission };
+const requirePermission = authorize;
+
+module.exports = { allowRoles, authorize, requirePermission };

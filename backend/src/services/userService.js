@@ -42,8 +42,8 @@ async function createUser(actor, data) {
   const name = String(data.name || '').trim();
   const email = sanitizeEmail(data.email);
   const password = String(data.password || '');
-  const role = data.role;
-  const tenantId = actor.role === 'SUPER_ADMIN' ? Number(data.tenantId) : actor.tenantId;
+  const role = actor.role === 'ADMIN' ? 'AGENT' : data.role;
+  const tenantId = actor.role === 'SUPER_ADMIN' ? data.tenantId : actor.tenantId;
   const permissions = Array.isArray(data.permissions) ? data.permissions : [];
 
   if (!name || !email || !password) {
@@ -61,8 +61,8 @@ async function createUser(actor, data) {
     error.status = 400;
     throw error;
   }
-  if (actor.role === 'SUPER_ADMIN' && role !== 'ADMIN') {
-    const error = new Error('Super Admin can only create Admin users');
+  if (actor.role === 'SUPER_ADMIN' && !['ADMIN', 'AGENT'].includes(role)) {
+    const error = new Error('Super Admin can only create Admin or Agent users');
     error.status = 403;
     throw error;
   }
@@ -73,6 +73,14 @@ async function createUser(actor, data) {
   }
   if (!tenantId) {
     const error = new Error('Tenant is required');
+    error.status = 400;
+    throw error;
+  }
+
+  const validKeys = (await pool.query('SELECT key FROM permissions')).rows.map((row) => row.key);
+  const invalidPermissions = permissions.filter((permission) => !validKeys.includes(permission));
+  if (invalidPermissions.length) {
+    const error = new Error(`Unknown permissions: ${invalidPermissions.join(', ')}`);
     error.status = 400;
     throw error;
   }
@@ -114,9 +122,10 @@ async function createUser(actor, data) {
   }
 
   const tenantName = await getTenantName(tenantId);
+  const assignedPermissions = role === 'AGENT' ? permissions : [];
   return {
     ...publicUser({ ...createdUser, tenant_name: tenantName }),
-    permissions: role === 'AGENT' ? permissions : [],
+    permissions: assignedPermissions,
   };
 }
 
@@ -252,10 +261,48 @@ async function setUserPermissions(actor, id, permissions) {
   return { id: target.id, permissions };
 }
 
+async function assignTenant(actor, id, tenantId) {
+  if (typeof tenantId !== 'string' || !tenantId) {
+    const error = new Error('tenantId is required');
+    error.status = 400;
+    throw error;
+  }
+  const target = await findUserById(id, actor);
+  if (!target) {
+    const error = new Error('User not found');
+    error.status = 404;
+    throw error;
+  }
+  if (actor.role === 'ADMIN' && target.role !== 'AGENT') {
+    const error = new Error('Admin can only assign Agents');
+    error.status = 403;
+    throw error;
+  }
+  if (actor.role === 'ADMIN' && tenantId !== actor.tenantId) {
+    const error = new Error('Cannot assign a user outside your tenant');
+    error.status = 403;
+    throw error;
+  }
+  const tenant = await pool.query('SELECT id FROM tenants WHERE id = $1', [tenantId]);
+  if (!tenant.rowCount) {
+    const error = new Error('Tenant not found');
+    error.status = 404;
+    throw error;
+  }
+  const result = await pool.query(
+    `UPDATE users SET tenant_id = $1, updated_at = NOW()
+     WHERE id = $2 RETURNING id, name, email, role, is_active, tenant_id, created_at`,
+    [tenantId, id],
+  );
+  const tenantName = await getTenantName(tenantId);
+  return publicUser({ ...result.rows[0], tenant_name: tenantName });
+}
+
 module.exports = {
   listUsers,
   createUser,
   updateUser,
   updateUserStatus,
   setUserPermissions,
+  assignTenant,
 };

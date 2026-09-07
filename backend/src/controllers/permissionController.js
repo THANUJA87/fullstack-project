@@ -30,4 +30,20 @@ async function deletePermission(req, res) {
   }
 }
 
-module.exports = { listPermissions, createPermission, deletePermission };
+async function getRolePermissions(req, res) {
+  try {
+    res.json(await permissionService.getRolePermissions(req.params.role));
+  } catch (err) {
+    handleServiceError(res, err);
+  }
+}
+
+async function updateRolePermissions(req, res) {
+  try {
+    res.json(await permissionService.updateRolePermissions(req.params.role, req.body.permissions));
+  } catch (err) {
+    handleServiceError(res, err);
+  }
+}
+
+module.exports = { listPermissions, createPermission, deletePermission, getRolePermissions, updateRolePermissions };

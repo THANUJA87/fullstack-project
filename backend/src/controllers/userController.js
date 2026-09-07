@@ -46,10 +46,20 @@ async function setUserPermissions(req, res) {
   }
 }
 
+async function assignTenant(req, res) {
+  try {
+    const user = await userService.assignTenant(req.user, req.params.id, req.body.tenantId);
+    res.json(user);
+  } catch (err) {
+    handleServiceError(res, err);
+  }
+}
+
 module.exports = {
   listUsers,
   createUser,
   updateUser,
   updateUserStatus,
   setUserPermissions,
+  assignTenant,
 };

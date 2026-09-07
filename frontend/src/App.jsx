@@ -1,17 +1,16 @@
 import { useCallback, useEffect, useState } from 'react';
 import { api, hasPermission } from './api';
+import Login from './components/Login';
+import Modal from './components/Modal';
+import ProjectTable from './components/ProjectTable';
+import { permissionSchema, projectSchema, userSchema, validationMessage } from './validation/schemas';
+import { STATUS_LABELS } from './constants';
+import { initials } from './utils';
 import './App.css';
-
-const STATUS_LABELS = {
-  IN_PROGRESS: 'In progress',
-  PLANNING: 'Planning',
-  COMPLETED: 'Completed',
-  ON_HOLD: 'On hold',
-};
 
 function App() {
   const [user, setUser] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(() => Boolean(localStorage.getItem('northstar_token')));
   const [activeView, setActiveView] = useState('Overview');
   const [projects, setProjects] = useState([]);
   const [users, setUsers] = useState([]);
@@ -36,23 +35,14 @@ function App() {
     setPermissions(data);
   }, [user]);
 
-  const refreshTenants = useCallback(async () => {
-    if (!user || user.role === 'AGENT') return;
-    const data = await api.getTenants();
-    setTenants(data);
-  }, [user]);
-
   useEffect(() => {
     const token = localStorage.getItem('northstar_token');
-    if (!token) {
-      setLoading(false);
-      return;
-    }
+    if (!token) return;
     api.me()
       .then((profile) => {
         setUser(profile);
         return Promise.all([
-          api.getProjects().then(setProjects),
+          profile.permissions?.includes('projects.read') ? api.getProjects().then(setProjects) : null,
           profile.role !== 'AGENT' ? api.getTenants().then(setTenants) : null,
           profile.role !== 'AGENT' ? api.getPermissions().then(setPermissions) : null,
           profile.role !== 'AGENT' ? api.getUsers().then(setUsers) : null,
@@ -64,11 +54,20 @@ function App() {
 
   async function handleLogin(email, password) {
     const data = await api.login(email, password);
+    await handleAuthenticated(data);
+  }
+
+  async function handleRegister(details) {
+    const data = await api.register(details);
+    await handleAuthenticated(data);
+  }
+
+  async function handleAuthenticated(data) {
     localStorage.setItem('northstar_token', data.token);
     setUser(data.user);
     setError('');
     const [projectList, tenantList, permissionList, userList] = await Promise.all([
-      api.getProjects(),
+      data.user.permissions?.includes('projects.read') ? api.getProjects() : [],
       data.user.role !== 'AGENT' ? api.getTenants() : [],
       data.user.role !== 'AGENT' ? api.getPermissions() : [],
       data.user.role !== 'AGENT' ? api.getUsers() : [],
@@ -94,7 +93,7 @@ function App() {
   }
 
   if (!user) {
-    return <Login onLogin={handleLogin} error={error} setError={setError} />;
+    return <Login onLogin={handleLogin} onRegister={handleRegister} error={error} setError={setError} />;
   }
 
   const navItems = [
@@ -199,9 +198,9 @@ function App() {
 function OverviewView({ user, projects, onNavigate }) {
   const visible = filterProjects(projects, user, '', 'All projects');
   const counts = {
-    active: visible.filter((p) => p.status === 'IN_PROGRESS').length,
-    planning: visible.filter((p) => p.status === 'PLANNING').length,
-    completed: visible.filter((p) => p.status === 'COMPLETED').length,
+    active: visible.filter((p) => p.status === 'ACTIVE').length,
+    planning: visible.filter((p) => p.status === 'DRAFT').length,
+    completed: visible.filter((p) => p.status === 'INACTIVE').length,
   };
 
   return (
@@ -215,8 +214,8 @@ function OverviewView({ user, projects, onNavigate }) {
       </section>
       <section className="metric-grid">
         <Metric label="Active projects" value={counts.active} accent="coral" />
-        <Metric label="In planning" value={counts.planning} accent="yellow" />
-        <Metric label="Completed" value={counts.completed} accent="green" />
+        <Metric label="Draft" value={counts.planning} accent="yellow" />
+        <Metric label="Inactive" value={counts.completed} accent="green" />
         <Metric label="Total projects" value={visible.length} accent="blue" />
       </section>
       <section className="project-section">
@@ -241,23 +240,28 @@ function ProjectsView({ user, projects, tenants, onRefresh }) {
   const [error, setError] = useState('');
 
   const visible = filterProjects(projects, user, query, filter);
-  const canCreate = hasPermission(user, 'projects:create');
-  const canUpdate = hasPermission(user, 'projects:update');
-  const canDelete = hasPermission(user, 'projects:delete');
+  const canCreate = hasPermission(user, 'projects.create');
+  const canUpdate = hasPermission(user, 'projects.update');
+  const canDelete = hasPermission(user, 'projects.delete');
 
   async function handleCreate(event) {
     event.preventDefault();
     setError('');
     const form = new FormData(event.currentTarget);
+    const payload = {
+      name: form.get('name'),
+      address: form.get('address'),
+      useCase: form.get('useCase'),
+      status: form.get('status'),
+      tenantId: user.role === 'SUPER_ADMIN' ? form.get('tenantId') : undefined,
+    };
+    const validation = projectSchema.safeParse(payload);
+    if (!validation.success) {
+      setError(validationMessage(validation));
+      return;
+    }
     try {
-      await api.createProject({
-        name: form.get('name'),
-        description: form.get('description'),
-        status: form.get('status'),
-        priority: form.get('priority'),
-        dueDate: form.get('dueDate') || null,
-        tenantId: user.role === 'SUPER_ADMIN' ? Number(form.get('tenantId')) : user.tenantId,
-      });
+      await api.createProject(validation.data);
       setShowCreate(false);
       await onRefresh();
     } catch (err) {
@@ -269,14 +273,19 @@ function ProjectsView({ user, projects, tenants, onRefresh }) {
     event.preventDefault();
     setError('');
     const form = new FormData(event.currentTarget);
+    const payload = {
+      name: form.get('name'),
+      address: form.get('address'),
+      useCase: form.get('useCase'),
+      status: form.get('status'),
+    };
+    const validation = projectSchema.safeParse(payload);
+    if (!validation.success) {
+      setError(validationMessage(validation));
+      return;
+    }
     try {
-      await api.updateProject(editing.id, {
-        name: form.get('name'),
-        description: form.get('description'),
-        status: form.get('status'),
-        priority: form.get('priority'),
-        dueDate: form.get('dueDate') || null,
-      });
+      await api.updateProject(editing.id, validation.data);
       setEditing(null);
       await onRefresh();
     } catch (err) {
@@ -318,10 +327,9 @@ function ProjectsView({ user, projects, tenants, onRefresh }) {
         </div>
         <select value={filter} onChange={(e) => setFilter(e.target.value)}>
           <option>All projects</option>
-          <option>In progress</option>
-          <option>Planning</option>
-          <option>Completed</option>
-          <option>On hold</option>
+          <option>Active</option>
+          <option>Inactive</option>
+          <option>Draft</option>
         </select>
       </div>
 
@@ -338,7 +346,8 @@ function ProjectsView({ user, projects, tenants, onRefresh }) {
         <Modal title="Create a project" onClose={() => setShowCreate(false)}>
           <form onSubmit={handleCreate}>
             <label>Project name<input name="name" required placeholder="e.g. Customer portal" /></label>
-            <label>Description<textarea name="description" placeholder="What does success look like?" /></label>
+            <label>Address<input name="address" required placeholder="Project address" /></label>
+            <label>Use case<input name="useCase" required placeholder="What is this project for?" /></label>
             {user.role === 'SUPER_ADMIN' && (
               <label>Tenant
                 <select name="tenantId" required defaultValue="">
@@ -349,22 +358,13 @@ function ProjectsView({ user, projects, tenants, onRefresh }) {
             )}
             <div className="form-row">
               <label>Status
-                <select name="status" defaultValue="PLANNING">
-                  <option value="PLANNING">Planning</option>
-                  <option value="IN_PROGRESS">In progress</option>
-                  <option value="ON_HOLD">On hold</option>
-                  <option value="COMPLETED">Completed</option>
-                </select>
-              </label>
-              <label>Priority
-                <select name="priority" defaultValue="MEDIUM">
-                  <option value="MEDIUM">Medium</option>
-                  <option value="HIGH">High</option>
-                  <option value="LOW">Low</option>
+                <select name="status" defaultValue="DRAFT">
+                  <option value="DRAFT">Draft</option>
+                  <option value="ACTIVE">Active</option>
+                  <option value="INACTIVE">Inactive</option>
                 </select>
               </label>
             </div>
-            <label>Due date<input type="date" name="dueDate" /></label>
             <button className="primary-button" type="submit">Create project</button>
           </form>
         </Modal>
@@ -374,25 +374,17 @@ function ProjectsView({ user, projects, tenants, onRefresh }) {
         <Modal title="Edit project" onClose={() => setEditing(null)}>
           <form onSubmit={handleUpdate}>
             <label>Project name<input name="name" required defaultValue={editing.name} /></label>
-            <label>Description<textarea name="description" defaultValue={editing.description} /></label>
+            <label>Address<input name="address" required defaultValue={editing.address} /></label>
+            <label>Use case<input name="useCase" required defaultValue={editing.use_case} /></label>
             <div className="form-row">
               <label>Status
                 <select name="status" defaultValue={editing.status}>
-                  <option value="PLANNING">Planning</option>
-                  <option value="IN_PROGRESS">In progress</option>
-                  <option value="ON_HOLD">On hold</option>
-                  <option value="COMPLETED">Completed</option>
-                </select>
-              </label>
-              <label>Priority
-                <select name="priority" defaultValue={editing.priority}>
-                  <option value="MEDIUM">Medium</option>
-                  <option value="HIGH">High</option>
-                  <option value="LOW">Low</option>
+                  <option value="DRAFT">Draft</option>
+                  <option value="ACTIVE">Active</option>
+                  <option value="INACTIVE">Inactive</option>
                 </select>
               </label>
             </div>
-            <label>Due date<input type="date" name="dueDate" defaultValue={editing.due_date?.slice(0, 10)} /></label>
             <button className="primary-button" type="submit">Save changes</button>
           </form>
         </Modal>
@@ -419,16 +411,21 @@ function PeopleView({ user, users, tenants, permissions, onRefresh }) {
     const selectedPerms = permissions
       .map((p) => p.key)
       .filter((key) => form.get(`perm-${key}`) === 'on');
+    const payload = {
+      name: form.get('name'),
+      email: form.get('email'),
+      password: form.get('password'),
+      tenantId: user.role === 'SUPER_ADMIN' ? form.get('tenantId') : user.tenantId,
+      permissions: selectedPerms,
+    };
+    const validation = userSchema.safeParse(payload);
+    if (!validation.success) {
+      setError(validationMessage(validation));
+      return;
+    }
 
     try {
-      await api.createUser({
-        name: form.get('name'),
-        email: form.get('email'),
-        password: form.get('password'),
-        role: creatableRole,
-        tenantId: user.role === 'SUPER_ADMIN' ? Number(form.get('tenantId')) : user.tenantId,
-        permissions: creatableRole === 'AGENT' ? selectedPerms : [],
-      });
+      await api.createUser({ ...validation.data, role: creatableRole });
       setShowCreate(false);
       await onRefresh();
     } catch (err) {
@@ -586,8 +583,13 @@ function PermissionsView({ permissions, onRefresh }) {
   async function handleCreate(event) {
     event.preventDefault();
     setError('');
+    const validation = permissionSchema.safeParse({ key, label });
+    if (!validation.success) {
+      setError(validationMessage(validation));
+      return;
+    }
     try {
-      await api.createPermission({ key, label });
+      await api.createPermission(validation.data);
       setKey('');
       setLabel('');
       await onRefresh();
@@ -644,135 +646,6 @@ function PermissionsView({ permissions, onRefresh }) {
   );
 }
 
-function ProjectTable({ projects, user, canUpdate, canDelete, onEdit, onDelete, compact }) {
-  return (
-    <div className="table-wrap">
-      <table>
-        <thead>
-          <tr>
-            <th>Project</th>
-            {user.role === 'SUPER_ADMIN' && <th>Workspace</th>}
-            <th>Status</th>
-            <th>Priority</th>
-            <th>Due date</th>
-            <th>Owner</th>
-            {!compact && (canUpdate || canDelete) && <th />}
-          </tr>
-        </thead>
-        <tbody>
-          {projects.map((project) => (
-            <tr key={project.id}>
-              <td>
-                <div className="project-name">
-                  <span className={`project-symbol ${project.priority.toLowerCase()}`}>
-                    {project.name.slice(0, 1)}
-                  </span>
-                  <span>
-                    <strong>{project.name}</strong>
-                    <small>{project.description}</small>
-                  </span>
-                </div>
-              </td>
-              {user.role === 'SUPER_ADMIN' && (
-                <td><span className="workspace-label">{project.tenant_name}</span></td>
-              )}
-              <td>
-                <span className={`status ${project.status.toLowerCase()}`}>
-                  <i />{STATUS_LABELS[project.status]}
-                </span>
-              </td>
-              <td><span className={`priority ${project.priority.toLowerCase()}`}>{project.priority}</span></td>
-              <td>
-                {project.due_date
-                  ? new Date(project.due_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
-                  : '—'}
-              </td>
-              <td>
-                <span className="owner">
-                  <span className="avatar tiny">{initials(project.owner_name)}</span>
-                  {project.owner_name || '—'}
-                </span>
-              </td>
-              {!compact && (canUpdate || canDelete) && (
-                <td className="actions-cell">
-                  {canUpdate && <button className="text-button" onClick={() => onEdit?.(project)}>Edit</button>}
-                  {canDelete && <button className="text-button danger" onClick={() => onDelete?.(project.id)}>Delete</button>}
-                </td>
-              )}
-            </tr>
-          ))}
-        </tbody>
-      </table>
-      {!projects.length && <div className="empty-state">No projects match your filters.</div>}
-    </div>
-  );
-}
-
-function Login({ onLogin, error, setError }) {
-  const [email, setEmail] = useState('admin@northstar.local');
-  const [password, setPassword] = useState('password123');
-  const [submitting, setSubmitting] = useState(false);
-
-  async function handleSubmit(event) {
-    event.preventDefault();
-    setSubmitting(true);
-    setError('');
-    try {
-      await onLogin(email, password);
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setSubmitting(false);
-    }
-  }
-
-  return (
-    <main className="login-page">
-      <div className="login-art">
-        <div className="art-copy">
-          <div className="brand light"><span className="brand-mark">N</span><span>northstar</span></div>
-          <h1>Make progress<br /><em>visible.</em></h1>
-          <p>A multi-tenant project management workspace with role-based access control.</p>
-        </div>
-        <div className="art-lines" />
-      </div>
-      <div className="login-panel">
-        <div className="login-form">
-          <p className="eyebrow">Welcome back</p>
-          <h2>Sign in to your workspace</h2>
-          <p className="muted">Use a demo account to explore RBAC and tenant isolation.</p>
-          <form onSubmit={handleSubmit}>
-            <label>Email address
-              <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
-            </label>
-            <label>Password
-              <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} required />
-            </label>
-            {error && <p className="form-error">{error}</p>}
-            <button className="primary-button full" type="submit" disabled={submitting}>
-              {submitting ? 'Signing in…' : 'Continue'} <span>→</span>
-            </button>
-          </form>
-          <div className="demo-accounts">
-            <small>Demo accounts (password: password123)</small>
-            {[
-              ['super@northstar.local', 'Super Admin', 'AS'],
-              ['admin@northstar.local', 'Admin', 'MC'],
-              ['agent@northstar.local', 'Agent (update only)', 'LM'],
-            ].map(([addr, label, av]) => (
-              <button key={addr} type="button" onClick={() => setEmail(addr)}>
-                <span className="avatar tiny">{av}</span>
-                <span><strong>{label}</strong><small>{addr}</small></span>
-                <b>→</b>
-              </button>
-            ))}
-          </div>
-        </div>
-      </div>
-    </main>
-  );
-}
-
 function Metric({ label, value, accent }) {
   return (
     <div className="metric">
@@ -782,33 +655,15 @@ function Metric({ label, value, accent }) {
   );
 }
 
-function Modal({ title, onClose, children }) {
-  return (
-    <div className="modal-backdrop" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
-      <div className="modal">
-        <div className="modal-header">
-          <h2>{title}</h2>
-          <button type="button" className="close-button" onClick={onClose}>×</button>
-        </div>
-        {children}
-      </div>
-    </div>
-  );
-}
-
 function filterProjects(projects, user, query, filter) {
   return projects.filter((project) => {
     const matchesFilter = filter === 'All projects' || STATUS_LABELS[project.status] === filter;
-    const matchesQuery = `${project.name} ${project.description}`.toLowerCase().includes(query.toLowerCase());
+    const matchesQuery = `${project.name} ${project.address} ${project.use_case}`.toLowerCase().includes(query.toLowerCase());
     const matchesTenant = user.role === 'SUPER_ADMIN'
       || project.tenant_id === user.tenantId
       || project.tenant_name === user.tenantName;
     return matchesFilter && matchesQuery && matchesTenant;
   });
-}
-
-function initials(name) {
-  return (name || '?').split(' ').map((part) => part[0]).join('').slice(0, 2);
 }
 
 export default App;

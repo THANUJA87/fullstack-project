@@ -1,106 +1,145 @@
+const { validate: isUuid } = require('uuid');
 const pool = require('../config/database');
-const { tenantFilter } = require('../utils/tenant');
-const { VALID_STATUSES, VALID_PRIORITIES } = require('../constants');
+
+const VALID_STATUSES = ['ACTIVE', 'INACTIVE', 'DRAFT'];
+
+function badRequest(message) {
+  const error = new Error(message);
+  error.status = 400;
+  return error;
+}
+
+function validateProjectId(id) {
+  if (!isUuid(id)) throw badRequest('Invalid project id');
+}
+
+function projectInput(data, partial = false) {
+  const input = {
+    name: data.name === undefined ? undefined : String(data.name).trim(),
+    address: data.address === undefined ? undefined : String(data.address).trim(),
+    useCase: data.useCase === undefined ? undefined : String(data.useCase).trim(),
+    status: data.status,
+  };
+  if (!partial && (!input.name || !input.address || !input.useCase)) {
+    throw badRequest('Name, address, and useCase are required');
+  }
+  if (input.name === '' || input.address === '' || input.useCase === '') {
+    throw badRequest('Name, address, and useCase cannot be empty');
+  }
+  if (input.status !== undefined && !VALID_STATUSES.includes(input.status)) {
+    throw badRequest('Invalid project status');
+  }
+  return input;
+}
+
+async function withTenantContext(user, work) {
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    await client.query(
+      `SELECT set_config('app.current_tenant_id', $1, true),
+              set_config('app.current_user_id', $2, true)`,
+      [user.role === 'SUPER_ADMIN' ? 'SUPER_ADMIN' : String(user.tenantId || ''), String(user.id)],
+    );
+    const result = await work(client);
+    await client.query('COMMIT');
+    return result;
+  } catch (error) {
+    await client.query('ROLLBACK');
+    throw error;
+  } finally {
+    client.release();
+  }
+}
 
 async function listProjects(user) {
-  const filter = tenantFilter(user, 'p.tenant_id', 1);
-  const result = await pool.query(
-    `SELECT p.*, t.name AS tenant_name, u.name AS owner_name
-     FROM projects p
-     JOIN tenants t ON t.id = p.tenant_id
-     LEFT JOIN users u ON u.id = p.owner_id
-     WHERE TRUE${filter.sql}
-     ORDER BY p.updated_at DESC`,
-    filter.values,
-  );
-  return result.rows;
+  return withTenantContext(user, async (client) => {
+    const result = await client.query(
+      `SELECT p.*, t.name AS tenant_name, u.name AS owner_name
+       FROM projects p JOIN tenants t ON t.id = p.tenant_id
+       LEFT JOIN users u ON u.id = p.owner_id
+       ORDER BY p.updated_at DESC`,
+    );
+    return result.rows;
+  });
+}
+
+async function getProject(user, id) {
+  validateProjectId(id);
+  return withTenantContext(user, async (client) => {
+    const result = await client.query(
+      `SELECT p.*, t.name AS tenant_name, u.name AS owner_name
+       FROM projects p JOIN tenants t ON t.id = p.tenant_id
+       LEFT JOIN users u ON u.id = p.owner_id WHERE p.id = $1`,
+      [id],
+    );
+    if (!result.rowCount) {
+      const error = new Error('Project not found');
+      error.status = 404;
+      throw error;
+    }
+    return result.rows[0];
+  });
 }
 
 async function createProject(user, data) {
-  const name = String(data.name || '').trim();
-  const description = String(data.description || '');
-  const status = data.status || 'IN_PROGRESS';
-  const priority = data.priority || 'MEDIUM';
-  const dueDate = data.dueDate || null;
-  const selectedTenant = user.role === 'SUPER_ADMIN' ? Number(data.tenantId) : user.tenantId;
+  const input = projectInput(data);
+  if (!user.tenantId && user.role !== 'SUPER_ADMIN') throw badRequest('User is not assigned to a tenant');
+  if (user.role === 'SUPER_ADMIN' && !data.tenantId) throw badRequest('Tenant is required for Super Admin project creation');
+  const tenantId = user.role === 'SUPER_ADMIN' ? data.tenantId : user.tenantId;
+  if (!isUuid(tenantId)) throw badRequest('Invalid tenant id');
 
-  if (!name) {
-    const error = new Error('Project name is required');
-    error.status = 400;
-    throw error;
-  }
-  if (!selectedTenant) {
-    const error = new Error('Tenant is required');
-    error.status = 400;
-    throw error;
-  }
-  if (!VALID_STATUSES.includes(status)) {
-    const error = new Error('Invalid status');
-    error.status = 400;
-    throw error;
-  }
-  if (!VALID_PRIORITIES.includes(priority)) {
-    const error = new Error('Invalid priority');
-    error.status = 400;
-    throw error;
-  }
-
-  const result = await pool.query(
-    `INSERT INTO projects (tenant_id, name, description, status, priority, due_date, owner_id)
-     VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *`,
-    [selectedTenant, name, description, status, priority, dueDate, user.id],
-  );
-  return result.rows[0];
+  return withTenantContext({ ...user, tenantId: user.role === 'SUPER_ADMIN' ? 'SUPER_ADMIN' : tenantId }, async (client) => {
+    const tenant = await client.query('SELECT id FROM tenants WHERE id = $1', [tenantId]);
+    if (!tenant.rowCount) throw badRequest('Tenant not found');
+    const result = await client.query(
+      `INSERT INTO projects (name, address, use_case, status, tenant_id, owner_id)
+       VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
+      [input.name, input.address, input.useCase, input.status || 'DRAFT', tenantId, user.id],
+    );
+    return result.rows[0];
+  });
 }
 
 async function updateProject(user, id, data) {
-  const { name, description, status, priority, dueDate } = data;
-
-  if (status && !VALID_STATUSES.includes(status)) {
-    const error = new Error('Invalid status');
-    error.status = 400;
-    throw error;
+  validateProjectId(id);
+  const input = projectInput(data, true);
+  const fields = [];
+  const values = [];
+  for (const [column, value] of [['name', input.name], ['address', input.address], ['use_case', input.useCase], ['status', input.status]]) {
+    if (value !== undefined) {
+      values.push(value);
+      fields.push(`${column} = $${values.length}`);
+    }
   }
-  if (priority && !VALID_PRIORITIES.includes(priority)) {
-    const error = new Error('Invalid priority');
-    error.status = 400;
-    throw error;
-  }
+  if (!fields.length) throw badRequest('No valid fields to update');
+  values.push(id);
 
-  const filter = tenantFilter(user, 'p.tenant_id', 7);
-  const result = await pool.query(
-    `UPDATE projects p
-     SET name = COALESCE($1, name),
-         description = COALESCE($2, description),
-         status = COALESCE($3, status),
-         priority = COALESCE($4, priority),
-         due_date = COALESCE($5, due_date),
-         updated_at = NOW()
-     WHERE p.id = $6${filter.sql}
-     RETURNING p.*`,
-    [name?.trim() || null, description ?? null, status ?? null, priority ?? null, dueDate ?? null, id, ...filter.values],
-  );
-
-  if (!result.rowCount) {
-    const error = new Error('Project not found');
-    error.status = 404;
-    throw error;
-  }
-  return result.rows[0];
+  return withTenantContext(user, async (client) => {
+    const result = await client.query(
+      `UPDATE projects SET ${fields.join(', ')}, updated_at = NOW()
+       WHERE id = $${values.length} RETURNING *`,
+      values,
+    );
+    if (!result.rowCount) {
+      const error = new Error('Project not found');
+      error.status = 404;
+      throw error;
+    }
+    return result.rows[0];
+  });
 }
 
 async function deleteProject(user, id) {
-  const filter = tenantFilter(user, 'tenant_id', 2);
-  const result = await pool.query(
-    `DELETE FROM projects WHERE id = $1${filter.sql}`,
-    [id, ...filter.values],
-  );
-
-  if (!result.rowCount) {
-    const error = new Error('Project not found');
-    error.status = 404;
-    throw error;
-  }
+  validateProjectId(id);
+  return withTenantContext(user, async (client) => {
+    const result = await client.query('DELETE FROM projects WHERE id = $1', [id]);
+    if (!result.rowCount) {
+      const error = new Error('Project not found');
+      error.status = 404;
+      throw error;
+    }
+  });
 }
 
-module.exports = { listProjects, createProject, updateProject, deleteProject };
+module.exports = { listProjects, getProject, createProject, updateProject, deleteProject };

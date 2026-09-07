@@ -6,5 +6,6 @@ const { authLimiter } = require('../middleware/rateLimiter');
 const router = express.Router();
 
 router.post('/login', authLimiter, asyncHandler(authController.login));
+router.post('/register', authLimiter, asyncHandler(authController.register));
 
 module.exports = router;
