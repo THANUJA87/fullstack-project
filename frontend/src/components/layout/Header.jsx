@@ -1,4 +1,4 @@
-import { initials } from "../../utils/helpers";
+import { initials } from '../../utils/helpers';
 
 export default function Header({ user, activeView }) {
   return (

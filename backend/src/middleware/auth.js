@@ -15,18 +15,20 @@ async function authenticate(req, res, next) {
       `SELECT u.id, u.name, u.email, u.role, u.tenant_id, u.is_active, t.name AS tenant_name
        FROM users u LEFT JOIN tenants t ON t.id = u.tenant_id
        WHERE u.id = $1`,
-      [claims.userId || claims.id],
+      [claims.userId || claims.id]
     );
     const user = result.rows[0];
     if (!user || !user.is_active) return sendError(res, 401, 'Invalid or expired token');
-    const permissions = (await pool.query(
-      `SELECT permission_key FROM (
+    const permissions = (
+      await pool.query(
+        `SELECT permission_key FROM (
          SELECT rp.permission_key FROM role_permissions rp WHERE rp.role = $1
          UNION
          SELECT up.permission_key FROM user_permissions up WHERE up.user_id = $2
        ) effective_permissions ORDER BY permission_key`,
-      [user.role, user.id],
-    )).rows.map((row) => row.permission_key);
+        [user.role, user.id]
+      )
+    ).rows.map((row) => row.permission_key);
     req.user = {
       id: user.id,
       name: user.name,

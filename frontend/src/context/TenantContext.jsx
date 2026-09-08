@@ -23,13 +23,41 @@ export function TenantProvider({ children }) {
       hasPermission(user, 'users.read') ? permissionApi.list() : [],
       hasPermission(user, 'users.read') ? userApi.list() : [],
     ]);
-    setProjects(projectList); setTenants(tenantList); setPermissions(permissionList); setUsers(userList);
-    return { projects: projectList, tenants: tenantList, permissions: permissionList, users: userList };
+    setProjects(projectList);
+    setTenants(tenantList);
+    setPermissions(permissionList);
+    setUsers(userList);
+    return {
+      projects: projectList,
+      tenants: tenantList,
+      permissions: permissionList,
+      users: userList,
+    };
   }
 
-  useEffect(() => { refresh().catch(() => {}); }, [user]);
+  useEffect(() => {
+    refresh().catch(() => {});
+  }, [user]);
 
-  return <TenantContext.Provider value={{ projects, users, tenants, permissions, refresh, setProjects, setUsers, setTenants, setPermissions }}>{children}</TenantContext.Provider>;
+  return (
+    <TenantContext.Provider
+      value={{
+        projects,
+        users,
+        tenants,
+        permissions,
+        refresh,
+        setProjects,
+        setUsers,
+        setTenants,
+        setPermissions,
+      }}
+    >
+      {children}
+    </TenantContext.Provider>
+  );
 }
 
-export function useTenantData() { return useContext(TenantContext); }
+export function useTenantData() {
+  return useContext(TenantContext);
+}

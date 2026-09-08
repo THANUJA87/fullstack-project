@@ -34,7 +34,7 @@ async function updateProject(req, res) {
       req.user,
       req.params.id,
       req.body,
-      req.method !== 'PUT',
+      req.method !== 'PUT'
     );
     res.json(project);
   } catch (err) {

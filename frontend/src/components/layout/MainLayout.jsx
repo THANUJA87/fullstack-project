@@ -1,14 +1,7 @@
-import Sidebar from "./Sidebar";
-import Header from "./Header";
+import Sidebar from './Sidebar';
+import Header from './Header';
 
-export default function MainLayout({
-  user,
-  activeView,
-  navItems,
-  onNavigate,
-  onLogout,
-  children,
-}) {
+export default function MainLayout({ user, activeView, navItems, onNavigate, onLogout, children }) {
   return (
     <div className="app-shell">
       <Sidebar {...{ user, activeView, navItems, onNavigate, onLogout }} />

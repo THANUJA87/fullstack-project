@@ -13,7 +13,7 @@ async function loadUserPermissions(userId) {
       SELECT up.permission_key FROM user_permissions up JOIN users u ON u.id = up.user_id
       WHERE up.user_id = $1 AND (u.role <> 'AGENT' OR up.permission_key LIKE 'projects.%')
      ) effective_permissions ORDER BY permission_key`,
-    [userId],
+    [userId]
   );
   return result.rows.map((row) => row.permission_key);
 }
@@ -30,7 +30,7 @@ async function login(email, password) {
     `SELECT u.*, t.name AS tenant_name
      FROM users u LEFT JOIN tenants t ON t.id = u.tenant_id
      WHERE u.email = $1`,
-    [normalizedEmail],
+    [normalizedEmail]
   );
   const user = result.rows[0];
 
@@ -48,7 +48,7 @@ async function createSession(user) {
   const token = jwt.sign(
     { userId: user.id, role: user.role, tenantId: user.tenant_id },
     jwtSecret,
-    { expiresIn: '8h' },
+    { expiresIn: '8h' }
   );
 
   return {
@@ -69,7 +69,7 @@ async function getProfile(userId) {
   const result = await pool.query(
     `SELECT u.id, u.name, u.email, u.role, u.tenant_id AS "tenantId", t.name AS "tenantName"
      FROM users u LEFT JOIN tenants t ON t.id = u.tenant_id WHERE u.id = $1`,
-    [userId],
+    [userId]
   );
   const permissions = await loadUserPermissions(userId);
   return { ...result.rows[0], permissions };

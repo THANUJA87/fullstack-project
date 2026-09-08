@@ -1,1 +1,13 @@
-export default function StatCard({ label, value, accent }) { return <div className="metric"><div className={`metric-icon ${accent}`}><span>◈</span></div><div><p>{label}</p><strong>{value}</strong></div></div>; }
+export default function StatCard({ label, value, accent }) {
+  return (
+    <div className="metric">
+      <div className={`metric-icon ${accent}`}>
+        <span>◈</span>
+      </div>
+      <div>
+        <p>{label}</p>
+        <strong>{value}</strong>
+      </div>
+    </div>
+  );
+}

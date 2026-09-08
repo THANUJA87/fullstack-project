@@ -46,4 +46,10 @@ async function updateRolePermissions(req, res) {
   }
 }
 
-module.exports = { listPermissions, createPermission, deletePermission, getRolePermissions, updateRolePermissions };
+module.exports = {
+  listPermissions,
+  createPermission,
+  deletePermission,
+  getRolePermissions,
+  updateRolePermissions,
+};

@@ -9,7 +9,11 @@ export function AuthProvider({ children }) {
 
   useEffect(() => {
     if (!localStorage.getItem('northstar_token')) return;
-    authApi.me().then(setUser).catch(() => localStorage.removeItem('northstar_token')).finally(() => setLoading(false));
+    authApi
+      .me()
+      .then(setUser)
+      .catch(() => localStorage.removeItem('northstar_token'))
+      .finally(() => setLoading(false));
   }, []);
 
   async function signIn(email, password) {
@@ -24,7 +28,13 @@ export function AuthProvider({ children }) {
     setUser(null);
   }
 
-  return <AuthContext.Provider value={{ user, loading, signIn, signOut }}>{children}</AuthContext.Provider>;
+  return (
+    <AuthContext.Provider value={{ user, loading, signIn, signOut }}>
+      {children}
+    </AuthContext.Provider>
+  );
 }
 
-export function useAuth() { return useContext(AuthContext); }
+export function useAuth() {
+  return useContext(AuthContext);
+}

@@ -39,7 +39,11 @@ async function updateUserStatus(req, res) {
 
 async function setUserPermissions(req, res) {
   try {
-    const result = await userService.setUserPermissions(req.user, req.params.id, req.body.permissions);
+    const result = await userService.setUserPermissions(
+      req.user,
+      req.params.id,
+      req.body.permissions
+    );
     res.json(result);
   } catch (err) {
     handleServiceError(res, err);

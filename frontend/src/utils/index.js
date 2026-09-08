@@ -1,7 +1,7 @@
 export function initials(name) {
-  return (name || "?")
-    .split(" ")
+  return (name || '?')
+    .split(' ')
     .map((part) => part[0])
-    .join("")
+    .join('')
     .slice(0, 2);
 }

@@ -1,13 +1,12 @@
-import { request } from "./axiosClient";
+import { request } from './axiosClient';
 
 export const projectApi = {
-  list: () => request("/api/projects"),
-  create: (body) =>
-    request("/api/projects", { method: "POST", body: JSON.stringify(body) }),
+  list: () => request('/api/projects'),
+  create: (body) => request('/api/projects', { method: 'POST', body: JSON.stringify(body) }),
   update: (id, body) =>
     request(`/api/projects/${id}`, {
-      method: "PATCH",
+      method: 'PATCH',
       body: JSON.stringify(body),
     }),
-  remove: (id) => request(`/api/projects/${id}`, { method: "DELETE" }),
+  remove: (id) => request(`/api/projects/${id}`, { method: 'DELETE' }),
 };

@@ -6,12 +6,12 @@ const pool = require('../config/database');
 async function migrateLegacySchema() {
   const legacyCheck = await pool.query(
     `SELECT 1 FROM information_schema.columns
-     WHERE table_name = 'projects' AND column_name = 'address'`,
+     WHERE table_name = 'projects' AND column_name = 'address'`
   );
   if (legacyCheck.rowCount) return;
 
   const projectsTable = await pool.query(
-    `SELECT 1 FROM information_schema.tables WHERE table_name = 'projects'`,
+    `SELECT 1 FROM information_schema.tables WHERE table_name = 'projects'`
   );
   if (!projectsTable.rowCount) return;
 
@@ -56,7 +56,9 @@ async function migrateLegacySchema() {
       FROM legacy_projects lp JOIN tenant_map tm ON tm.old_id = lp.tenant_id
       LEFT JOIN user_map um ON um.old_id = lp.owner_id;
     `);
-    await client.query('DROP TABLE legacy_user_permissions, legacy_projects, legacy_users, legacy_permissions, legacy_tenants CASCADE');
+    await client.query(
+      'DROP TABLE legacy_user_permissions, legacy_projects, legacy_users, legacy_permissions, legacy_tenants CASCADE'
+    );
     await client.query('COMMIT');
   } catch (error) {
     await client.query('ROLLBACK');
@@ -88,16 +90,31 @@ async function seedDatabase() {
     ['permissions.manage', 'Manage role permissions'],
   ];
   for (const permission of permissions) {
-    await pool.query('INSERT INTO permissions (key, label) VALUES ($1, $2) ON CONFLICT DO NOTHING', permission);
+    await pool.query(
+      'INSERT INTO permissions (key, label) VALUES ($1, $2) ON CONFLICT DO NOTHING',
+      permission
+    );
   }
   const rolePermissions = {
     SUPER_ADMIN: permissions.map(([key]) => key),
-    ADMIN: ['users.read', 'users.create', 'users.update', 'users.disable', 'projects.read', 'projects.create', 'projects.update', 'projects.delete'],
+    ADMIN: [
+      'users.read',
+      'users.create',
+      'users.update',
+      'users.disable',
+      'projects.read',
+      'projects.create',
+      'projects.update',
+      'projects.delete',
+    ],
     AGENT: ['projects.read'],
   };
   for (const [role, keys] of Object.entries(rolePermissions)) {
     for (const key of keys) {
-      await pool.query('INSERT INTO role_permissions (role, permission_key) VALUES ($1, $2) ON CONFLICT DO NOTHING', [role, key]);
+      await pool.query(
+        'INSERT INTO role_permissions (role, permission_key) VALUES ($1, $2) ON CONFLICT DO NOTHING',
+        [role, key]
+      );
     }
   }
 
@@ -111,7 +128,7 @@ async function seedDatabase() {
       `INSERT INTO tenants (name, slug) VALUES ($1, $2)
        ON CONFLICT (slug) DO UPDATE SET name = EXCLUDED.name
        RETURNING id, slug`,
-      [name, slug],
+      [name, slug]
     );
     tenantIds[slug] = result.rows[0].id;
   }
@@ -119,7 +136,13 @@ async function seedDatabase() {
   const identities = [
     ['Super Admin', 'super@example.com', 'SUPER_ADMIN', null, []],
     ['Admin A', 'admin.a@example.com', 'ADMIN', tenantIds['tenant-a'], []],
-    ['Agent A1', 'agent.a1@example.com', 'AGENT', tenantIds['tenant-a'], ['projects.read', 'projects.update']],
+    [
+      'Agent A1',
+      'agent.a1@example.com',
+      'AGENT',
+      tenantIds['tenant-a'],
+      ['projects.read', 'projects.update'],
+    ],
     ['Admin B', 'admin.b@example.com', 'ADMIN', tenantIds['tenant-b'], []],
     ['Agent B1', 'agent.b1@example.com', 'AGENT', tenantIds['tenant-b'], ['projects.read']],
   ];
@@ -131,34 +154,43 @@ async function seedDatabase() {
        ON CONFLICT (email) DO UPDATE SET name = EXCLUDED.name, password_hash = EXCLUDED.password_hash,
          role = EXCLUDED.role, tenant_id = EXCLUDED.tenant_id, is_active = TRUE
        RETURNING id`,
-      [name, email, await bcrypt.hash('password123', 10), role, tenantId],
+      [name, email, await bcrypt.hash('password123', 10), role, tenantId]
     );
     await pool.query('DELETE FROM user_permissions WHERE user_id = $1', [user.rows[0].id]);
     for (const permission of permissions) {
       await pool.query(
         'INSERT INTO user_permissions (user_id, permission_key) VALUES ($1, $2) ON CONFLICT DO NOTHING',
-        [user.rows[0].id, permission],
+        [user.rows[0].id, permission]
       );
     }
   }
 
-  await pool.query(`
+  await pool.query(
+    `
     INSERT INTO projects (tenant_id, name, address, use_case, status)
     SELECT $1, 'Project A1', '100 Project Stack Avenue', 'Customer workspace', 'ACTIVE'
     WHERE NOT EXISTS (SELECT 1 FROM projects WHERE name = 'Project A1' AND tenant_id = $1)
-  `, [tenantIds['tenant-a']]);
+  `,
+    [tenantIds['tenant-a']]
+  );
 
-  await pool.query(`
+  await pool.query(
+    `
     INSERT INTO projects (tenant_id, name, address, use_case, status)
     SELECT $1, 'Project A2', '200 Project Stack Avenue', 'Reporting', 'DRAFT'
     WHERE NOT EXISTS (SELECT 1 FROM projects WHERE name = 'Project A2' AND tenant_id = $1)
-  `, [tenantIds['tenant-a']]);
+  `,
+    [tenantIds['tenant-a']]
+  );
 
-  await pool.query(`
+  await pool.query(
+    `
     INSERT INTO projects (tenant_id, name, address, use_case, status)
     SELECT $1, 'Project B1', '300 Acme Road', 'Operations', 'ACTIVE'
     WHERE NOT EXISTS (SELECT 1 FROM projects WHERE name = 'Project B1' AND tenant_id = $1)
-  `, [tenantIds['tenant-b']]);
+  `,
+    [tenantIds['tenant-b']]
+  );
 }
 
 module.exports = seedDatabase;

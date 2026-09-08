@@ -40,7 +40,7 @@ async function withTenantContext(user, work) {
     await client.query(
       `SELECT set_config('app.current_tenant_id', $1, true),
               set_config('app.current_user_id', $2, true)`,
-      [user.role === 'SUPER_ADMIN' ? 'SUPER_ADMIN' : String(user.tenantId || ''), String(user.id)],
+      [user.role === 'SUPER_ADMIN' ? 'SUPER_ADMIN' : String(user.tenantId || ''), String(user.id)]
     );
     const result = await work(client);
     await client.query('COMMIT');
@@ -55,12 +55,15 @@ async function withTenantContext(user, work) {
 
 async function listProjects(user) {
   return withTenantContext(user, async (client) => {
-    const scope = user.role === 'SUPER_ADMIN' ? { sql: '', values: [] } : { sql: 'WHERE p.tenant_id = $1', values: [user.tenantId] };
+    const scope =
+      user.role === 'SUPER_ADMIN'
+        ? { sql: '', values: [] }
+        : { sql: 'WHERE p.tenant_id = $1', values: [user.tenantId] };
     const result = await client.query(
       `SELECT p.*, t.name AS tenant_name
        FROM projects p JOIN tenants t ON t.id = p.tenant_id
        ${scope.sql} ORDER BY p.updated_at DESC`,
-      scope.values,
+      scope.values
     );
     return result.rows;
   });
@@ -69,12 +72,15 @@ async function listProjects(user) {
 async function getProject(user, id) {
   validateProjectId(id);
   return withTenantContext(user, async (client) => {
-    const scope = user.role === 'SUPER_ADMIN' ? { sql: '', values: [id] } : { sql: ' AND p.tenant_id = $2', values: [id, user.tenantId] };
+    const scope =
+      user.role === 'SUPER_ADMIN'
+        ? { sql: '', values: [id] }
+        : { sql: ' AND p.tenant_id = $2', values: [id, user.tenantId] };
     const result = await client.query(
       `SELECT p.*, t.name AS tenant_name
        FROM projects p JOIN tenants t ON t.id = p.tenant_id
        WHERE p.id = $1${scope.sql}`,
-      scope.values,
+      scope.values
     );
     if (!result.rowCount) {
       const error = new Error('Project not found');
@@ -87,21 +93,26 @@ async function getProject(user, id) {
 
 async function createProject(user, data) {
   const input = projectInput(data);
-  if (!user.tenantId && user.role !== 'SUPER_ADMIN') throw badRequest('User is not assigned to a tenant');
-  if (user.role === 'SUPER_ADMIN' && !data.tenantId) throw badRequest('Tenant is required for Super Admin project creation');
+  if (!user.tenantId && user.role !== 'SUPER_ADMIN')
+    throw badRequest('User is not assigned to a tenant');
+  if (user.role === 'SUPER_ADMIN' && !data.tenantId)
+    throw badRequest('Tenant is required for Super Admin project creation');
   const tenantId = user.role === 'SUPER_ADMIN' ? data.tenantId : user.tenantId;
   if (!isUuid(tenantId)) throw badRequest('Invalid tenant id');
 
-  return withTenantContext({ ...user, tenantId: user.role === 'SUPER_ADMIN' ? 'SUPER_ADMIN' : tenantId }, async (client) => {
-    const tenant = await client.query('SELECT id FROM tenants WHERE id = $1', [tenantId]);
-    if (!tenant.rowCount) throw badRequest('Tenant not found');
-    const result = await client.query(
-      `INSERT INTO projects (name, address, use_case, status, tenant_id)
+  return withTenantContext(
+    { ...user, tenantId: user.role === 'SUPER_ADMIN' ? 'SUPER_ADMIN' : tenantId },
+    async (client) => {
+      const tenant = await client.query('SELECT id FROM tenants WHERE id = $1', [tenantId]);
+      if (!tenant.rowCount) throw badRequest('Tenant not found');
+      const result = await client.query(
+        `INSERT INTO projects (name, address, use_case, status, tenant_id)
        VALUES ($1, $2, $3, $4, $5) RETURNING *`,
-      [input.name, input.address, input.useCase, input.status || 'DRAFT', tenantId],
-    );
-    return result.rows[0];
-  });
+        [input.name, input.address, input.useCase, input.status || 'DRAFT', tenantId]
+      );
+      return result.rows[0];
+    }
+  );
 }
 
 async function updateProject(user, id, data, partial = true) {
@@ -109,7 +120,12 @@ async function updateProject(user, id, data, partial = true) {
   const input = projectInput(data, partial);
   const fields = [];
   const values = [];
-  for (const [column, value] of [['name', input.name], ['address', input.address], ['use_case', input.useCase], ['status', input.status]]) {
+  for (const [column, value] of [
+    ['name', input.name],
+    ['address', input.address],
+    ['use_case', input.useCase],
+    ['status', input.status],
+  ]) {
     if (value !== undefined) {
       values.push(value);
       fields.push(`${column} = $${values.length}`);
@@ -134,7 +150,7 @@ async function updateProject(user, id, data, partial = true) {
     const result = await client.query(
       `UPDATE projects SET ${fields.join(', ')}, updated_at = NOW()
        WHERE id = $${idParam}${tenantSql} RETURNING *`,
-      values,
+      values
     );
     if (!result.rowCount) {
       const error = new Error('Project not found');
@@ -148,8 +164,14 @@ async function updateProject(user, id, data, partial = true) {
 async function deleteProject(user, id) {
   validateProjectId(id);
   return withTenantContext(user, async (client) => {
-    const scope = user.role === 'SUPER_ADMIN' ? { sql: '', values: [id] } : { sql: ' AND tenant_id = $2', values: [id, user.tenantId] };
-    const result = await client.query(`DELETE FROM projects WHERE id = $1${scope.sql}`, scope.values);
+    const scope =
+      user.role === 'SUPER_ADMIN'
+        ? { sql: '', values: [id] }
+        : { sql: ' AND tenant_id = $2', values: [id, user.tenantId] };
+    const result = await client.query(
+      `DELETE FROM projects WHERE id = $1${scope.sql}`,
+      scope.values
+    );
     if (!result.rowCount) {
       const error = new Error('Project not found');
       error.status = 404;

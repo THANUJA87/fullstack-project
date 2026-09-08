@@ -11,7 +11,7 @@ async function findUserById(id, tenantUser) {
     `SELECT u.*, t.name AS tenant_name
      FROM users u LEFT JOIN tenants t ON t.id = u.tenant_id
      WHERE u.id = $1${filter.sql}`,
-    [id, ...filter.values],
+    [id, ...filter.values]
   );
   return result.rows[0] || null;
 }
@@ -29,13 +29,15 @@ async function listUsers(user) {
      FROM users u LEFT JOIN tenants t ON t.id = u.tenant_id
      WHERE TRUE${filter.sql}
      ORDER BY u.created_at DESC`,
-    filter.values,
+    filter.values
   );
 
-  return Promise.all(result.rows.map(async (row) => ({
-    ...publicUser(row),
-    permissions: row.role === 'AGENT' ? await loadUserPermissions(row.id) : [],
-  })));
+  return Promise.all(
+    result.rows.map(async (row) => ({
+      ...publicUser(row),
+      permissions: row.role === 'AGENT' ? await loadUserPermissions(row.id) : [],
+    }))
+  );
 }
 
 async function createUser(actor, data) {
@@ -46,7 +48,10 @@ async function createUser(actor, data) {
   const tenantId = actor.role === 'SUPER_ADMIN' ? data.tenantId : actor.tenantId;
   const permissions = Array.isArray(data.permissions) ? data.permissions : [];
 
-  if (permissions.length && (actor.role === 'ADMIN' || !actor.permissions?.includes('permissions.manage'))) {
+  if (
+    permissions.length &&
+    (actor.role === 'ADMIN' || !actor.permissions?.includes('permissions.manage'))
+  ) {
     const error = new Error('You cannot assign permissions to users');
     error.status = 403;
     throw error;
@@ -113,7 +118,7 @@ async function createUser(actor, data) {
       `INSERT INTO users (name, email, password_hash, role, tenant_id)
        VALUES ($1, $2, $3, $4, $5)
        RETURNING id, name, email, role, is_active, tenant_id, created_at`,
-      [name, email, passwordHash, role, tenantId],
+      [name, email, passwordHash, role, tenantId]
     );
     createdUser = result.rows[0];
   } catch (err) {
@@ -129,7 +134,7 @@ async function createUser(actor, data) {
     for (const permission of permissions) {
       await pool.query(
         'INSERT INTO user_permissions (user_id, permission_key) VALUES ($1, $2) ON CONFLICT DO NOTHING',
-        [createdUser.id, permission],
+        [createdUser.id, permission]
       );
     }
   }
@@ -195,7 +200,7 @@ async function updateUser(actor, id, data) {
   const result = await pool.query(
     `UPDATE users SET ${sets.join(', ')} WHERE id = $${values.length}
      RETURNING id, name, email, role, is_active, tenant_id, created_at`,
-    values,
+    values
   );
 
   const tenantName = await getTenantName(result.rows[0].tenant_id);
@@ -229,7 +234,7 @@ async function updateUserStatus(actor, id, isActive) {
 
   const result = await pool.query(
     'UPDATE users SET is_active = $1 WHERE id = $2 RETURNING id, name, email, role, is_active, tenant_id, created_at',
-    [isActive, id],
+    [isActive, id]
   );
 
   const tenantName = await getTenantName(result.rows[0].tenant_id);
@@ -275,10 +280,10 @@ async function setUserPermissions(actor, id, permissions) {
 
   await pool.query('DELETE FROM user_permissions WHERE user_id = $1', [target.id]);
   for (const permission of permissions) {
-    await pool.query(
-      'INSERT INTO user_permissions (user_id, permission_key) VALUES ($1, $2)',
-      [target.id, permission],
-    );
+    await pool.query('INSERT INTO user_permissions (user_id, permission_key) VALUES ($1, $2)', [
+      target.id,
+      permission,
+    ]);
   }
 
   return { id: target.id, permissions };
@@ -315,7 +320,7 @@ async function assignTenant(actor, id, tenantId) {
   const result = await pool.query(
     `UPDATE users SET tenant_id = $1, updated_at = NOW()
      WHERE id = $2 RETURNING id, name, email, role, is_active, tenant_id, created_at`,
-    [tenantId, id],
+    [tenantId, id]
   );
   const tenantName = await getTenantName(tenantId);
   return publicUser({ ...result.rows[0], tenant_name: tenantName });

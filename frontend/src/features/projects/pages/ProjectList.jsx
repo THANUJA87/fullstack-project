@@ -7,11 +7,174 @@ import { hasPermission } from '../../../utils/permissions';
 import projectService from '../project.service';
 
 export default function ProjectList({ user, projects, tenants, onRefresh, tenantId }) {
-  const [query, setQuery] = useState(''); const [filter, setFilter] = useState('All projects'); const [editing, setEditing] = useState(null); const [showCreate, setShowCreate] = useState(false); const [error, setError] = useState('');
-  const visible = projects.filter((project) => (tenantId ? project.tenant_id === tenantId : user.role === 'SUPER_ADMIN' || project.tenant_id === user.tenantId || project.tenant_name === user.tenantName) && (filter === 'All projects' || project.status === filter.toUpperCase()) && `${project.name} ${project.address} ${project.use_case}`.toLowerCase().includes(query.toLowerCase()));
-  const submit = async (event) => { event.preventDefault(); setError(''); const form = new FormData(event.currentTarget); const data = { name: form.get('name'), address: form.get('address'), useCase: form.get('useCase'), status: form.get('status'), tenantId: user.role === 'SUPER_ADMIN' ? (tenantId || form.get('tenantId')) : undefined }; const result = projectSchema.safeParse(data); if (!result.success) { setError(validationMessage(result)); return; } try { await projectService.create(result.data); setShowCreate(false); await onRefresh(); } catch (err) { setError(err.message); } };
-  const update = async (event) => { event.preventDefault(); setError(''); const form = new FormData(event.currentTarget); const data = { name: form.get('name'), address: form.get('address'), useCase: form.get('useCase'), status: form.get('status'), tenantId: user.role === 'SUPER_ADMIN' ? form.get('tenantId') : undefined }; const result = projectSchema.safeParse(data); if (!result.success) { setError(validationMessage(result)); return; } try { await projectService.update(editing.id, result.data); setEditing(null); await onRefresh(); } catch (err) { setError(err.message); } };
-  async function remove(id) { if (!window.confirm('Delete this project?')) return; try { await projectService.remove(id); await onRefresh(); } catch (err) { setError(err.message); } }
-  return <><section className="page-heading"><div><p className="eyebrow">Project management</p><h1>Projects</h1><p className="muted">Create, update, and track work items.</p></div>{hasPermission(user, 'projects.create') && <button className="primary-button" onClick={() => setShowCreate(true)}><span>＋</span> New project</button>}</section>{error && <p className="banner-error">{error}</p>}<ProjectFilters {...{ query, setQuery, filter, setFilter }} /><ProjectTable projects={visible} user={user} canUpdate={hasPermission(user, 'projects.update')} canDelete={hasPermission(user, 'projects.delete')} onEdit={setEditing} onDelete={remove} />{showCreate && <ProjectModal title="Create a project" tenants={tenants} tenantId={tenantId} onClose={() => setShowCreate(false)} onSubmit={submit} user={user} />}{editing && <ProjectModal title="Edit project" project={editing} tenants={tenants} onClose={() => setEditing(null)} onSubmit={update} user={user} />}</>;
+  const [query, setQuery] = useState('');
+  const [filter, setFilter] = useState('All projects');
+  const [editing, setEditing] = useState(null);
+  const [showCreate, setShowCreate] = useState(false);
+  const [error, setError] = useState('');
+  const visible = projects.filter(
+    (project) =>
+      (tenantId
+        ? project.tenant_id === tenantId
+        : user.role === 'SUPER_ADMIN' ||
+          project.tenant_id === user.tenantId ||
+          project.tenant_name === user.tenantName) &&
+      (filter === 'All projects' || project.status === filter.toUpperCase()) &&
+      `${project.name} ${project.address} ${project.use_case}`
+        .toLowerCase()
+        .includes(query.toLowerCase())
+  );
+  const submit = async (event) => {
+    event.preventDefault();
+    setError('');
+    const form = new FormData(event.currentTarget);
+    const data = {
+      name: form.get('name'),
+      address: form.get('address'),
+      useCase: form.get('useCase'),
+      status: form.get('status'),
+      tenantId: user.role === 'SUPER_ADMIN' ? tenantId || form.get('tenantId') : undefined,
+    };
+    const result = projectSchema.safeParse(data);
+    if (!result.success) {
+      setError(validationMessage(result));
+      return;
+    }
+    try {
+      await projectService.create(result.data);
+      setShowCreate(false);
+      await onRefresh();
+    } catch (err) {
+      setError(err.message);
+    }
+  };
+  const update = async (event) => {
+    event.preventDefault();
+    setError('');
+    const form = new FormData(event.currentTarget);
+    const data = {
+      name: form.get('name'),
+      address: form.get('address'),
+      useCase: form.get('useCase'),
+      status: form.get('status'),
+      tenantId: user.role === 'SUPER_ADMIN' ? form.get('tenantId') : undefined,
+    };
+    const result = projectSchema.safeParse(data);
+    if (!result.success) {
+      setError(validationMessage(result));
+      return;
+    }
+    try {
+      await projectService.update(editing.id, result.data);
+      setEditing(null);
+      await onRefresh();
+    } catch (err) {
+      setError(err.message);
+    }
+  };
+  async function remove(id) {
+    if (!window.confirm('Delete this project?')) return;
+    try {
+      await projectService.remove(id);
+      await onRefresh();
+    } catch (err) {
+      setError(err.message);
+    }
+  }
+  return (
+    <>
+      <section className="page-heading">
+        <div>
+          <p className="eyebrow">Project management</p>
+          <h1>Projects</h1>
+          <p className="muted">Create, update, and track work items.</p>
+        </div>
+        {hasPermission(user, 'projects.create') && (
+          <button className="primary-button" onClick={() => setShowCreate(true)}>
+            <span>＋</span> New project
+          </button>
+        )}
+      </section>
+      {error && <p className="banner-error">{error}</p>}
+      <ProjectFilters {...{ query, setQuery, filter, setFilter }} />
+      <ProjectTable
+        projects={visible}
+        user={user}
+        canUpdate={hasPermission(user, 'projects.update')}
+        canDelete={hasPermission(user, 'projects.delete')}
+        onEdit={setEditing}
+        onDelete={remove}
+      />
+      {showCreate && (
+        <ProjectModal
+          title="Create a project"
+          tenants={tenants}
+          tenantId={tenantId}
+          onClose={() => setShowCreate(false)}
+          onSubmit={submit}
+          user={user}
+        />
+      )}
+      {editing && (
+        <ProjectModal
+          title="Edit project"
+          project={editing}
+          tenants={tenants}
+          onClose={() => setEditing(null)}
+          onSubmit={update}
+          user={user}
+        />
+      )}
+    </>
+  );
 }
-function ProjectModal({ title, project, tenants = [], tenantId, user, onClose, onSubmit }) { const selectedTenantId = tenantId || project?.tenant_id || ''; return <Modal title={title} onClose={onClose}><form onSubmit={onSubmit}><label>Project name<input name="name" required defaultValue={project?.name} /></label><label>Address<input name="address" required defaultValue={project?.address} /></label><label>Use case<input name="useCase" required defaultValue={project?.use_case} /></label>{user.role === 'SUPER_ADMIN' && <label>Tenant<select name="tenantId" required defaultValue={selectedTenantId}><option value="" disabled>Select tenant</option>{tenants.map((tenant) => <option key={tenant.id} value={tenant.id}>{tenant.name}</option>)}</select></label>}{user.role !== 'SUPER_ADMIN' && tenantId && <input type="hidden" name="tenantId" value={tenantId} />}<label>Status<select name="status" defaultValue={project?.status || 'DRAFT'}><option value="DRAFT">Draft</option><option value="ACTIVE">Active</option><option value="INACTIVE">Inactive</option></select></label><button className="primary-button" type="submit">Save</button></form></Modal>; }
+function ProjectModal({ title, project, tenants = [], tenantId, user, onClose, onSubmit }) {
+  const selectedTenantId = tenantId || project?.tenant_id || '';
+  return (
+    <Modal title={title} onClose={onClose}>
+      <form onSubmit={onSubmit}>
+        <label>
+          Project name
+          <input name="name" required defaultValue={project?.name} />
+        </label>
+        <label>
+          Address
+          <input name="address" required defaultValue={project?.address} />
+        </label>
+        <label>
+          Use case
+          <input name="useCase" required defaultValue={project?.use_case} />
+        </label>
+        {user.role === 'SUPER_ADMIN' && (
+          <label>
+            Tenant
+            <select name="tenantId" required defaultValue={selectedTenantId}>
+              <option value="" disabled>
+                Select tenant
+              </option>
+              {tenants.map((tenant) => (
+                <option key={tenant.id} value={tenant.id}>
+                  {tenant.name}
+                </option>
+              ))}
+            </select>
+          </label>
+        )}
+        {user.role !== 'SUPER_ADMIN' && tenantId && (
+          <input type="hidden" name="tenantId" value={tenantId} />
+        )}
+        <label>
+          Status
+          <select name="status" defaultValue={project?.status || 'DRAFT'}>
+            <option value="DRAFT">Draft</option>
+            <option value="ACTIVE">Active</option>
+            <option value="INACTIVE">Inactive</option>
+          </select>
+        </label>
+        <button className="primary-button" type="submit">
+          Save
+        </button>
+      </form>
+    </Modal>
+  );
+}

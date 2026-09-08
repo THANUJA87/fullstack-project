@@ -1,5 +1,5 @@
-import { STATUS_LABELS } from "../../utils/constants";
-import { Pencil, Trash2 } from "lucide-react";
+import { STATUS_LABELS } from '../../utils/constants';
+import { Pencil, Trash2 } from 'lucide-react';
 
 export default function ProjectTable({
   projects,
@@ -17,7 +17,7 @@ export default function ProjectTable({
           <tr>
             <th>Project</th>
             <th>Use case</th>
-            {user.role === "SUPER_ADMIN" && <th>Workspace</th>}
+            {user.role === 'SUPER_ADMIN' && <th>Workspace</th>}
             <th>Status</th>
             <th>Address</th>
             {!compact && (canUpdate || canDelete) && <th />}
@@ -28,16 +28,14 @@ export default function ProjectTable({
             <tr key={project.id}>
               <td>
                 <div className="project-name">
-                  <span
-                    className={`project-symbol ${project.status.toLowerCase()}`}
-                  >
+                  <span className={`project-symbol ${project.status.toLowerCase()}`}>
                     {project.name.slice(0, 1)}
                   </span>
                   <strong>{project.name}</strong>
                 </div>
               </td>
               <td>{project.use_case}</td>
-              {user.role === "SUPER_ADMIN" && (
+              {user.role === 'SUPER_ADMIN' && (
                 <td>
                   <span className="workspace-label">{project.tenant_name}</span>
                 </td>
@@ -79,9 +77,7 @@ export default function ProjectTable({
           ))}
         </tbody>
       </table>
-      {!projects.length && (
-        <div className="empty-state">No projects match your filters.</div>
-      )}
+      {!projects.length && <div className="empty-state">No projects match your filters.</div>}
     </div>
   );
 }

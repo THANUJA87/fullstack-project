@@ -1,5 +1,7 @@
 function sanitizeEmail(email) {
-  return String(email || '').trim().toLowerCase();
+  return String(email || '')
+    .trim()
+    .toLowerCase();
 }
 
 function publicUser(row) {

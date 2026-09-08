@@ -20,7 +20,7 @@ async function createPermission({ key, label }) {
   try {
     const result = await pool.query(
       'INSERT INTO permissions (key, label) VALUES ($1, $2) RETURNING key, label',
-      [key, label],
+      [key, label]
     );
     return result.rows[0];
   } catch (err) {
@@ -52,7 +52,7 @@ async function getRolePermissions(role) {
     `SELECT p.key, p.label, (rp.permission_key IS NOT NULL) AS enabled
      FROM permissions p LEFT JOIN role_permissions rp
        ON rp.permission_key = p.key AND rp.role = $1 ORDER BY p.key`,
-    [role],
+    [role]
   );
   return result.rows;
 }
@@ -85,7 +85,10 @@ async function updateRolePermissions(role, permissionKeys) {
     await client.query('BEGIN');
     await client.query('DELETE FROM role_permissions WHERE role = $1', [role]);
     for (const key of permissionKeys) {
-      await client.query('INSERT INTO role_permissions (role, permission_key) VALUES ($1, $2)', [role, key]);
+      await client.query('INSERT INTO role_permissions (role, permission_key) VALUES ($1, $2)', [
+        role,
+        key,
+      ]);
     }
     await client.query('COMMIT');
     return getRolePermissions(role);
@@ -97,4 +100,10 @@ async function updateRolePermissions(role, permissionKeys) {
   }
 }
 
-module.exports = { listPermissions, createPermission, deletePermission, getRolePermissions, updateRolePermissions };
+module.exports = {
+  listPermissions,
+  createPermission,
+  deletePermission,
+  getRolePermissions,
+  updateRolePermissions,
+};

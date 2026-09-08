@@ -5,7 +5,7 @@ async function listTenants(user) {
   const filter = tenantFilter(user, 'id', 1);
   const result = await pool.query(
     `SELECT id, name, slug, created_at AS "createdAt" FROM tenants WHERE TRUE${filter.sql} ORDER BY name`,
-    filter.values,
+    filter.values
   );
   return result.rows;
 }
@@ -34,11 +34,11 @@ async function createTenant(actor, { name, slug, adminUserId }) {
     await client.query(
       `SELECT set_config('app.current_tenant_id', 'SUPER_ADMIN', true),
               set_config('app.current_user_id', $1, true)`,
-      [String(actor.id)],
+      [String(actor.id)]
     );
     const tenantResult = await client.query(
       'INSERT INTO tenants (name, slug) VALUES ($1, $2) RETURNING id, name, slug, created_at AS "createdAt"',
-      [name, slug],
+      [name, slug]
     );
     const tenant = tenantResult.rows[0];
     const adminResult = await client.query(
@@ -46,7 +46,7 @@ async function createTenant(actor, { name, slug, adminUserId }) {
        SET role = 'ADMIN', tenant_id = $1, updated_at = NOW()
        WHERE id = $2 AND role <> 'SUPER_ADMIN' AND tenant_id IS NULL
        RETURNING id, name, email, role, tenant_id`,
-      [tenant.id, adminUserId],
+      [tenant.id, adminUserId]
     );
     if (!adminResult.rowCount) {
       const error = new Error('Selected user is unavailable or already assigned to a tenant');
@@ -58,7 +58,11 @@ async function createTenant(actor, { name, slug, adminUserId }) {
   } catch (err) {
     await client.query('ROLLBACK');
     if (err.code === '23505') {
-      const error = new Error(err.constraint?.includes('users') ? 'Admin email already in use' : 'Tenant slug already exists');
+      const error = new Error(
+        err.constraint?.includes('users')
+          ? 'Admin email already in use'
+          : 'Tenant slug already exists'
+      );
       error.status = 409;
       throw error;
     }

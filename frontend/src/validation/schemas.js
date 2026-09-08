@@ -30,7 +30,10 @@ export const permissionSchema = z.object({
 
 export const tenantSchema = z.object({
   name: requiredText('Tenant name'),
-  slug: z.string().trim().regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, 'Use lowercase letters, numbers, and hyphens'),
+  slug: z
+    .string()
+    .trim()
+    .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, 'Use lowercase letters, numbers, and hyphens'),
 });
 
 export function validationMessage(result) {

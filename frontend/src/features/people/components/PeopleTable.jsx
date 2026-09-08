@@ -1,12 +1,7 @@
-import StatusBadge from "../../../components/common/StatusBadge";
-import { KeyRound } from "lucide-react";
+import StatusBadge from '../../../components/common/StatusBadge';
+import { KeyRound } from 'lucide-react';
 
-export default function PeopleTable({
-  currentUser,
-  users,
-  onToggle,
-  onPermissions,
-}) {
+export default function PeopleTable({ currentUser, users, onToggle, onPermissions }) {
   return (
     <div className="table-wrap people-table-wrap">
       <table className="people-table">
@@ -25,10 +20,9 @@ export default function PeopleTable({
         <tbody>
           {users.map((user) => {
             const canToggle =
-              user.role === "AGENT" ||
-              (currentUser.role === "SUPER_ADMIN" && user.role === "ADMIN");
-            const permissions =
-              user.role === "AGENT" ? user.permissions || [] : [];
+              user.role === 'AGENT' ||
+              (currentUser.role === 'SUPER_ADMIN' && user.role === 'ADMIN');
+            const permissions = user.role === 'AGENT' ? user.permissions || [] : [];
             return (
               <tr key={user.id}>
                 <td>
@@ -36,45 +30,41 @@ export default function PeopleTable({
                 </td>
                 <td className="person-email">{user.email}</td>
                 <td>
-                  <span className="role-badge">
-                    {user.role.replace("_", " ")}
-                  </span>
+                  <span className="role-badge">{user.role.replace('_', ' ')}</span>
                 </td>
-                <td>{user.tenantName || "—"}</td>
+                <td>{user.tenantName || '—'}</td>
                 <td>
                   <StatusBadge active={user.isActive}>
-                    {user.isActive ? "Active" : "Disabled"}
+                    {user.isActive ? 'Active' : 'Disabled'}
                   </StatusBadge>
                 </td>
                 <td className="people-toggle-cell">
                   {canToggle && (
                     <label
                       className="status-toggle"
-                      title={user.isActive ? "Disable user" : "Enable user"}
+                      title={user.isActive ? 'Disable user' : 'Enable user'}
                     >
                       <input
                         type="checkbox"
                         checked={user.isActive}
                         onChange={() => onToggle(user)}
-                        aria-label={`${user.isActive ? "Disable" : "Enable"} ${user.name}`}
+                        aria-label={`${user.isActive ? 'Disable' : 'Enable'} ${user.name}`}
                       />
                       <span />
                     </label>
                   )}
                 </td>
                 <td>
-                  {user.role === "AGENT" ? (
+                  {user.role === 'AGENT' ? (
                     <span className="permission-summary">
-                      {permissions.length
-                        ? permissions.join(", ")
-                        : "No project access"}
+                      {permissions.length ? permissions.join(', ') : 'No project access'}
                     </span>
                   ) : (
                     <span className="permission-summary">Full access</span>
                   )}
                 </td>
                 <td className="people-permission-cell">
-                  {user.role === "AGENT" && onPermissions && (
+                  {user.role === 'AGENT' && onPermissions && (
                     <button
                       className="permission-icon"
                       type="button"
