@@ -1,0 +1,1 @@
+export default function AssignAdminForm({ users }) { return <select name="adminUserId" required defaultValue=""><option value="" disabled>Select a user</option>{users.filter((user) => user.role !== 'SUPER_ADMIN' && !user.tenantId).map((user) => <option key={user.id} value={user.id}>{user.name} ({user.email})</option>)}</select>; }

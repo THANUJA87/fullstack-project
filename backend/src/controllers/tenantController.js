@@ -14,7 +14,7 @@ async function createTenant(req, res) {
   try {
     const name = String(req.body.name || '').trim();
     const slug = String(req.body.slug || '').trim().toLowerCase().replace(/[^a-z0-9-]+/g, '-');
-    const tenant = await tenantService.createTenant({ name, slug });
+    const tenant = await tenantService.createTenant(req.user, { name, slug, adminUserId: req.body.adminUserId });
     res.status(201).json(tenant);
   } catch (err) {
     handleServiceError(res, err);

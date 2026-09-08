@@ -61,13 +61,13 @@ async function createUser(actor, data) {
     error.status = 400;
     throw error;
   }
-  if (actor.role === 'SUPER_ADMIN' && !['ADMIN', 'AGENT'].includes(role)) {
-    const error = new Error('Super Admin can only create Admin or Agent users');
+  if (role === 'SUPER_ADMIN') {
+    const error = new Error('Super Admin users cannot be created');
     error.status = 403;
     throw error;
   }
-  if (actor.role === 'ADMIN' && role !== 'AGENT') {
-    const error = new Error('Admin can only create Agent users');
+  if (role === 'ADMIN' && actor.role !== 'SUPER_ADMIN') {
+    const error = new Error('Only a Super Admin can create Admin users');
     error.status = 403;
     throw error;
   }

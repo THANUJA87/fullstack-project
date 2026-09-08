@@ -1,0 +1,1 @@
+export default function TenantStats({ admins, projects }) { return <p className="muted">{admins.length} Admin{admins.length === 1 ? '' : 's'} · {projects.length} project{projects.length === 1 ? '' : 's'}</p>; }

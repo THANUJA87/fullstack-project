@@ -17,19 +17,20 @@ With `AUTO_SEED=true`, the API creates the UUID/RBAC/RLS schema and seed fixture
 | POST | `/api/auth/login` | Public (rate limited) |
 | POST | `/api/auth/register` | Public (rate limited); creates an unassigned AGENT |
 | GET | `/api/me` | Authenticated |
-| GET/POST | `/api/tenants` | `users.read`; create requires Super Admin + `permissions.manage` |
+| GET/POST | `/api/tenants` | `users.read`; create requires `permissions.manage` and Super Admin scope, and assigns an existing unassigned user as the tenant's Admin |
 | GET/POST/GET/PATCH/PUT/DELETE | `/api/projects` | `projects.read/create/update/delete` |
 | GET/POST/PUT/PATCH | `/api/users` | `users.read/create/update/disable` |
 | PATCH | `/api/users/:id/tenant` | `users.update`; tenant-scoped for Admins |
 | PUT | `/api/users/:id/permissions` | `users.update`; Agents only |
-| GET/POST/DELETE | `/api/permissions` | Super Admin + `permissions.manage` |
-| GET/PUT | `/api/permissions/roles/:role/permissions` | Super Admin + `permissions.manage`; ADMIN only may be changed |
+| GET | `/api/permissions` | `users.read` |
+| POST/DELETE | `/api/permissions` | `permissions.manage` |
+| GET/PUT | `/api/permissions/roles/:role/permissions` | `permissions.manage`; only ADMIN role permissions may be changed |
 
 ## Authorization model
 
-- **Super Admin** — Cross-tenant access; manages users, tenants, permissions, and Admin role permissions.
-- **Admin** — Single tenant; manages Agents and projects according to current role permissions; cannot create Admins.
-- **Agent** — Single tenant; starts with no role permissions and can receive explicit user permissions.
+- **Super Admin** — Cross-tenant access; manages users, tenants, permissions, and Admin role permissions. The only role allowed to create Admin users.
+- **Admin** — Single tenant; manages users and projects according to current permissions; cannot create Admins.
+- **Agent** — Single tenant; starts with no role permissions and can receive explicit user permissions when granted the relevant permissions.
 
 ## Security model
 

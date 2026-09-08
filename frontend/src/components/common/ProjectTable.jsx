@@ -1,4 +1,4 @@
-import { STATUS_LABELS } from '../constants';
+import { STATUS_LABELS } from '../../utils/constants';
 
 export default function ProjectTable({ projects, user, canUpdate, canDelete, onEdit, onDelete, compact }) {
   return (
@@ -16,21 +16,11 @@ export default function ProjectTable({ projects, user, canUpdate, canDelete, onE
         <tbody>
           {projects.map((project) => (
             <tr key={project.id}>
-              <td>
-                <div className="project-name">
-                  <span className={`project-symbol ${project.status.toLowerCase()}`}>{project.name.slice(0, 1)}</span>
-                  <span><strong>{project.name}</strong><small>{project.use_case}</small></span>
-                </div>
-              </td>
+              <td><div className="project-name"><span className={`project-symbol ${project.status.toLowerCase()}`}>{project.name.slice(0, 1)}</span><span><strong>{project.name}</strong><small>{project.use_case}</small></span></div></td>
               {user.role === 'SUPER_ADMIN' && <td><span className="workspace-label">{project.tenant_name}</span></td>}
               <td><span className={`status ${project.status.toLowerCase()}`}><i />{STATUS_LABELS[project.status]}</span></td>
               <td>{project.address}</td>
-              {!compact && (canUpdate || canDelete) && (
-                <td className="actions-cell">
-                  {canUpdate && <button className="text-button" onClick={() => onEdit?.(project)}>Edit</button>}
-                  {canDelete && <button className="text-button danger" onClick={() => onDelete?.(project.id)}>Delete</button>}
-                </td>
-              )}
+              {!compact && (canUpdate || canDelete) && <td className="actions-cell">{canUpdate && <button className="text-button" onClick={() => onEdit?.(project)}>Edit</button>}{canDelete && <button className="text-button danger" onClick={() => onDelete?.(project.id)}>Delete</button>}</td>}
             </tr>
           ))}
         </tbody>
