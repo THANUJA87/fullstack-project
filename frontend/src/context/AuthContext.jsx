@@ -19,19 +19,12 @@ export function AuthProvider({ children }) {
     return data.user;
   }
 
-  async function register(details) {
-    const data = await authApi.register(details);
-    localStorage.setItem('northstar_token', data.token);
-    setUser(data.user);
-    return data.user;
-  }
-
   function signOut() {
     localStorage.removeItem('northstar_token');
     setUser(null);
   }
 
-  return <AuthContext.Provider value={{ user, loading, signIn, register, signOut }}>{children}</AuthContext.Provider>;
+  return <AuthContext.Provider value={{ user, loading, signIn, signOut }}>{children}</AuthContext.Provider>;
 }
 
 export function useAuth() { return useContext(AuthContext); }

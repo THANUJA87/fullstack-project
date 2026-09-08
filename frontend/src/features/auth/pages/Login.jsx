@@ -1,6 +1,6 @@
 import LoginForm from '../components/LoginForm';
 
-export default function Login({ onLogin, onRegister, error, setError }) {
+export default function Login({ onLogin, error, setError }) {
   return (
     <main className="login-page">
       <div className="login-art">
@@ -12,7 +12,7 @@ export default function Login({ onLogin, onRegister, error, setError }) {
         <div className="art-lines" />
       </div>
       <div className="login-panel">
-        <LoginForm {...{ onLogin, onRegister, error, setError }} />
+        <LoginForm {...{ onLogin, error, setError }} />
       </div>
     </main>
   );

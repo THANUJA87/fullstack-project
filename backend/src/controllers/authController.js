@@ -10,15 +10,6 @@ async function login(req, res) {
   }
 }
 
-async function register(req, res) {
-  try {
-    const result = await authService.register(req.body);
-    res.status(201).json(result);
-  } catch (err) {
-    handleServiceError(res, err);
-  }
-}
-
 async function getMe(req, res) {
   try {
     const profile = await authService.getProfile(req.user.id);
@@ -28,4 +19,4 @@ async function getMe(req, res) {
   }
 }
 
-module.exports = { login, register, getMe };
+module.exports = { login, getMe };

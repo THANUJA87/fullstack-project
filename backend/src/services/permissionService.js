@@ -58,8 +58,8 @@ async function getRolePermissions(role) {
 }
 
 async function updateRolePermissions(role, permissionKeys) {
-  if (role !== 'ADMIN') {
-    const error = new Error('Only ADMIN role permissions can be managed');
+  if (!['SUPER_ADMIN', 'ADMIN', 'AGENT'].includes(role)) {
+    const error = new Error('Invalid role');
     error.status = 403;
     throw error;
   }

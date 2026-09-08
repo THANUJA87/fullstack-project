@@ -12,7 +12,7 @@ import PermissionManagement from "../features/permissions/pages/PermissionManage
 import Loader from "../components/common/Loader";
 
 export default function AppRoutes() {
-  const { user, loading, signIn, register, signOut } = useAuth();
+  const { user, loading, signIn, signOut } = useAuth();
   const data = useTenantData();
   const [view, setView] = useState("Overview");
   const [error, setError] = useState("");
@@ -21,7 +21,6 @@ export default function AppRoutes() {
     return (
       <Login
         onLogin={signIn}
-        onRegister={register}
         error={error}
         setError={setError}
       />

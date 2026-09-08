@@ -93,7 +93,7 @@ async function seedDatabase() {
   const rolePermissions = {
     SUPER_ADMIN: permissions.map(([key]) => key),
     ADMIN: ['users.read', 'users.create', 'users.update', 'users.disable', 'projects.read', 'projects.create', 'projects.update', 'projects.delete'],
-    AGENT: [],
+    AGENT: ['projects.read'],
   };
   for (const [role, keys] of Object.entries(rolePermissions)) {
     for (const key of keys) {

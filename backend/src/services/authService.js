@@ -41,46 +41,6 @@ async function login(email, password) {
   return createSession(user);
 }
 
-async function register(data) {
-  const name = String(data.name || '').trim();
-  const email = sanitizeEmail(data.email);
-  const password = String(data.password || '');
-
-  if (!name || !email || !password) {
-    const error = new Error('Name, email, and password are required');
-    error.status = 400;
-    throw error;
-  }
-  if (password.length < 8) {
-    const error = new Error('Password must be at least 8 characters');
-    error.status = 400;
-    throw error;
-  }
-
-  const client = await pool.connect();
-  try {
-    await client.query('BEGIN');
-    const userResult = await client.query(
-      `INSERT INTO users (name, email, password_hash, role, tenant_id)
-       VALUES ($1, $2, $3, 'AGENT', NULL)
-       RETURNING id, name, email, role, tenant_id`,
-      [name, email, await bcrypt.hash(password, 10)],
-    );
-    await client.query('COMMIT');
-    return createSession({ ...userResult.rows[0], tenant_name: null });
-  } catch (err) {
-    await client.query('ROLLBACK');
-    if (err.code === '23505' && err.constraint?.includes('users_email')) {
-      const error = new Error('Email already in use');
-      error.status = 409;
-      throw error;
-    }
-    throw err;
-  } finally {
-    client.release();
-  }
-}
-
 async function createSession(user) {
   const permissions = await loadUserPermissions(user.id);
   const token = jwt.sign(
@@ -113,4 +73,4 @@ async function getProfile(userId) {
   return { ...result.rows[0], permissions };
 }
 
-module.exports = { login, register, getProfile, loadUserPermissions };
+module.exports = { login, getProfile, loadUserPermissions };

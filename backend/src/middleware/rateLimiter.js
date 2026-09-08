@@ -16,10 +16,4 @@ const loginLimiter = rateLimit({
   handler: rateLimitResponse,
 });
 
-const registrationLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  limit: 10,
-  handler: rateLimitResponse,
-});
-
-module.exports = { globalLimiter, loginLimiter, registrationLimiter };
+module.exports = { globalLimiter, loginLimiter };
