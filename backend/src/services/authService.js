@@ -7,9 +7,11 @@ const { sanitizeEmail } = require('../utils/formatters');
 async function loadUserPermissions(userId) {
   const result = await pool.query(
     `SELECT permission_key FROM (
-       SELECT rp.permission_key FROM role_permissions rp JOIN users u ON u.role = rp.role WHERE u.id = $1
+      SELECT rp.permission_key FROM role_permissions rp JOIN users u ON u.role = rp.role
+      WHERE u.id = $1 AND (u.role <> 'AGENT' OR rp.permission_key LIKE 'projects.%')
        UNION
-       SELECT permission_key FROM user_permissions WHERE user_id = $1
+      SELECT up.permission_key FROM user_permissions up JOIN users u ON u.id = up.user_id
+      WHERE up.user_id = $1 AND (u.role <> 'AGENT' OR up.permission_key LIKE 'projects.%')
      ) effective_permissions ORDER BY permission_key`,
     [userId],
   );

@@ -61,7 +61,7 @@ export default function PermissionManagement({ permissions, onRefresh }) {
   return (
     <>
       <section className="page-heading">
-        <div><p className="eyebrow">System configuration</p><h1>Permission management</h1><p className="muted">Choose what each role can see and do across the workspace.</p></div>
+        <div><p className="eyebrow">Access control</p><h1>Role permissions</h1><p className="muted">Choose what each role can see and do across the workspace.</p></div>
       </section>
       {error && <p className="banner-error">{error}</p>}
       {loading ? <div className="loading-screen permission-loading">Loading role permissions…</div> : (

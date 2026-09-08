@@ -5,11 +5,41 @@
 .loading-screen { min-height: 100vh; display: grid; place-items: center; color: #63716c; font-size: 14px; }
 .banner-error { background: #fceee9; color: #c44a38; padding: 10px 14px; border-radius: 6px; font-size: 12px; margin-bottom: 16px; }
 .actions-cell { display: flex; gap: 10px; }
+.icon-action { width: 30px; height: 30px; border: 1px solid #dce5df; border-radius: 6px; background: #fff; color: #df6b55; font-size: 17px; line-height: 1; display: inline-grid; place-items: center; }
+.icon-action:hover { background: #fff4f0; border-color: #e87058; }
+.icon-action.danger { color: #c44a38; }
+.status-toggle { display: inline-flex; align-items: center; cursor: pointer; }
+.status-toggle input { position: absolute; opacity: 0; pointer-events: none; }
+.status-toggle span { width: 32px; height: 18px; border-radius: 999px; background: #cbd5d0; position: relative; transition: background .15s ease; }
+.status-toggle span:after { content: ''; position: absolute; width: 14px; height: 14px; top: 2px; left: 2px; border-radius: 50%; background: #fff; box-shadow: 0 1px 3px #19342e33; transition: transform .15s ease; }
+.status-toggle input:checked + span { background: #5b9b79; }
+.status-toggle input:checked + span:after { transform: translateX(14px); }
 .text-button.danger { color: #c44a38; }
 .role-badge { font-size: 10px; padding: 3px 7px; border-radius: 4px; background: #edf2ef; color: #4a5c55; text-transform: capitalize; }
+.people-table { min-width: 900px; }
+.people-table th:nth-last-child(-n+2) { width: 110px; text-align: center; }
+.people-table td { height: 64px; vertical-align: middle; }
+.person-name { color: #263a34; font-size: 12px; }
+.person-email { color: #62716b; }
+.permission-summary { color: #62716b; font-size: 11px; line-height: 1.45; }
+.people-toggle-cell, .people-permission-cell { text-align: center; vertical-align: middle; }
+.people-toggle-cell .status-toggle { justify-content: center; }
+.permission-icon { border: 1px solid #dce5df; border-radius: 6px; background: #fff; color: #df6b55; display: inline-grid; place-items: center; padding: 0; }
+.permission-icon:hover { background: #fff4f0; border-color: #e87058; }
 .perm-fieldset { border: 1px solid #e1e8e3; border-radius: 6px; padding: 12px; display: grid; gap: 8px; }
 .perm-fieldset legend { font-size: 11px; color: #63716c; padding: 0 4px; }
 .checkbox-label { display: flex; align-items: center; gap: 8px; font-size: 12px; color: #3a4843; }
+.modal label.checkbox-label { display: flex; align-items: center; gap: 8px; }
+.modal label.checkbox-label input[type="checkbox"] { width: 15px; height: 15px; padding: 0; margin: 0; flex: 0 0 auto; }
+.permission-modal-form { gap: 18px; }
+.permission-modal-intro { display: grid; gap: 4px; padding: 2px 0 4px; }
+.permission-modal-intro strong { color: #24322d; font-size: 15px; }
+.permission-modal-intro span { color: #83908b; font-size: 11px; }
+.permission-modal-form .perm-fieldset { display: grid; gap: 3px; padding: 15px; }
+.permission-modal-form .checkbox-label { padding: 9px 6px; border-radius: 5px; }
+.permission-modal-form .checkbox-label:hover { background: #f5f8f5; }
+.permission-modal-form .checkbox-label > span { display: grid; gap: 2px; }
+.permission-modal-form .checkbox-label small { color: #9aa69f; font-size: 10px; }
 .inline-form { display: flex; flex-wrap: wrap; gap: 12px; align-items: end; background: #fff; border: 1px solid #e5ebe7; border-radius: 9px; padding: 18px; }
 .inline-form label { font-size: 11px; color: #63716c; display: grid; gap: 6px; flex: 1; min-width: 180px; }
 .inline-form input { border: 1px solid #dce5df; background: #fcfdfb; border-radius: 6px; padding: 10px; outline: 0; font-size: 12px; }
@@ -46,3 +76,15 @@ code { font-size: 11px; background: #f0f4f1; padding: 2px 6px; border-radius: 4p
 .permission-catalog h2 { margin: 0 0 5px; font-size: 17px; }
 .permission-catalog .inline-form { padding: 0; border: 0; }
 @media (max-width: 1100px) { .role-permission-grid { grid-template-columns: 1fr; } }
+.app-shell { height: 100dvh; min-height: 0; overflow: hidden; }
+.sidebar { flex: 0 0 248px; height: 100dvh; overflow: hidden; }
+.main-content { height: 100dvh; min-height: 0; overflow-x: hidden; overflow-y: auto; }
+.icon-tenants:before { content: '▤'; font-size: 18px; position: absolute; top: -1px; }
+
+@media (max-width: 900px) {
+	.sidebar { flex-basis: 205px; }
+}
+
+@media (max-width: 650px) {
+	.sidebar { flex-basis: 62px; }
+}

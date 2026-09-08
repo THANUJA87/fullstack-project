@@ -75,6 +75,11 @@ async function updateRolePermissions(role, permissionKeys) {
     error.status = 400;
     throw error;
   }
+  if (role === 'AGENT' && permissionKeys.some((key) => !key.startsWith('projects.'))) {
+    const error = new Error('The AGENT role may only receive project permissions');
+    error.status = 400;
+    throw error;
+  }
   const client = await pool.connect();
   try {
     await client.query('BEGIN');

@@ -51,6 +51,11 @@ async function createUser(actor, data) {
     error.status = 403;
     throw error;
   }
+  if (role === 'AGENT' && permissions.some((permission) => !permission.startsWith('projects.'))) {
+    const error = new Error('Agents may only receive project permissions');
+    error.status = 400;
+    throw error;
+  }
 
   if (!name || !email || !password) {
     const error = new Error('Name, email, and password are required');
@@ -259,6 +264,11 @@ async function setUserPermissions(actor, id, permissions) {
   const invalid = permissions.filter((key) => !validKeys.includes(key));
   if (invalid.length) {
     const error = new Error(`Unknown permissions: ${invalid.join(', ')}`);
+    error.status = 400;
+    throw error;
+  }
+  if (permissions.some((key) => !key.startsWith('projects.'))) {
+    const error = new Error('Agents may only receive project permissions');
     error.status = 400;
     throw error;
   }

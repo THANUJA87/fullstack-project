@@ -115,6 +115,11 @@ async function updateProject(user, id, data, partial = true) {
       fields.push(`${column} = $${values.length}`);
     }
   }
+  if (user.role === 'SUPER_ADMIN' && data.tenantId !== undefined) {
+    if (!isUuid(data.tenantId)) throw badRequest('Invalid tenant id');
+    values.push(data.tenantId);
+    fields.push(`tenant_id = $${values.length}`);
+  }
   if (!fields.length) throw badRequest('No valid fields to update');
   const idParam = values.length + 1;
   values.push(id);
@@ -122,6 +127,10 @@ async function updateProject(user, id, data, partial = true) {
   if (user.role !== 'SUPER_ADMIN') values.push(user.tenantId);
 
   return withTenantContext(user, async (client) => {
+    if (user.role === 'SUPER_ADMIN' && data.tenantId !== undefined) {
+      const tenant = await client.query('SELECT id FROM tenants WHERE id = $1', [data.tenantId]);
+      if (!tenant.rowCount) throw badRequest('Tenant not found');
+    }
     const result = await client.query(
       `UPDATE projects SET ${fields.join(', ')}, updated_at = NOW()
        WHERE id = $${idParam}${tenantSql} RETURNING *`,
