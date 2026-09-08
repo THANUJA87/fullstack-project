@@ -24,6 +24,7 @@ export function TenantProvider({ children }) {
       hasPermission(user, 'users.read') ? userApi.list() : [],
     ]);
     setProjects(projectList); setTenants(tenantList); setPermissions(permissionList); setUsers(userList);
+    return { projects: projectList, tenants: tenantList, permissions: permissionList, users: userList };
   }
 
   useEffect(() => { refresh().catch(() => {}); }, [user]);

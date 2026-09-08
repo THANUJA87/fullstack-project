@@ -31,6 +31,11 @@ async function createTenant(actor, { name, slug, adminUserId }) {
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
+    await client.query(
+      `SELECT set_config('app.current_tenant_id', 'SUPER_ADMIN', true),
+              set_config('app.current_user_id', $1, true)`,
+      [String(actor.id)],
+    );
     const tenantResult = await client.query(
       'INSERT INTO tenants (name, slug) VALUES ($1, $2) RETURNING id, name, slug, created_at AS "createdAt"',
       [name, slug],

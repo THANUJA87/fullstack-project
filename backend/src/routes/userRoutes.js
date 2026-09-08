@@ -13,6 +13,6 @@ router.patch('/:id', authenticate, requirePermission('users.update'), asyncHandl
 router.patch('/:id/disable', authenticate, requirePermission('users.disable'), asyncHandler(userController.updateUserStatus));
 router.patch('/:id/status', authenticate, requirePermission('users.disable'), asyncHandler(userController.updateUserStatus));
 router.patch('/:id/tenant', authenticate, requirePermission('users.update'), asyncHandler(userController.assignTenant));
-router.put('/:id/permissions', authenticate, requirePermission('users.update'), asyncHandler(userController.setUserPermissions));
+router.put('/:id/permissions', authenticate, requirePermission('permissions.manage'), asyncHandler(userController.setUserPermissions));
 
 module.exports = router;

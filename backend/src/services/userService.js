@@ -46,6 +46,12 @@ async function createUser(actor, data) {
   const tenantId = actor.role === 'SUPER_ADMIN' ? data.tenantId : actor.tenantId;
   const permissions = Array.isArray(data.permissions) ? data.permissions : [];
 
+  if (permissions.length && (actor.role === 'ADMIN' || !actor.permissions?.includes('permissions.manage'))) {
+    const error = new Error('You cannot assign permissions to users');
+    error.status = 403;
+    throw error;
+  }
+
   if (!name || !email || !password) {
     const error = new Error('Name, email, and password are required');
     error.status = 400;
@@ -229,6 +235,11 @@ async function setUserPermissions(actor, id, permissions) {
   if (!Array.isArray(permissions)) {
     const error = new Error('permissions array is required');
     error.status = 400;
+    throw error;
+  }
+  if (actor.role === 'ADMIN') {
+    const error = new Error('Admins cannot grant or modify Agent permissions');
+    error.status = 403;
     throw error;
   }
 

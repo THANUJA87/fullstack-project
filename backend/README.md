@@ -29,7 +29,7 @@ With `AUTO_SEED=true`, the API creates the UUID/RBAC/RLS schema and seed fixture
 ## Authorization model
 
 - **Super Admin** — Cross-tenant access; manages users, tenants, permissions, and Admin role permissions. The only role allowed to create Admin users.
-- **Admin** — Single tenant; manages users and projects according to current permissions; cannot create Admins.
+- **Admin** — Single tenant; can create, update, enable, and disable Agents in that tenant and can create, update, and delete projects there. Cannot create Admins, modify Super Admins, or grant Agent permissions.
 - **Agent** — Single tenant; starts with no role permissions and can receive explicit user permissions when granted the relevant permissions.
 
 ## Security model

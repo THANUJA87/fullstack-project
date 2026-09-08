@@ -6,3 +6,11 @@ export function initials(name = "") {
     .slice(0, 2)
     .toUpperCase();
 }
+
+export function slugify(value = "") {
+  return String(value)
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
