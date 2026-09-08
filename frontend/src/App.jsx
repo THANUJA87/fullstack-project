@@ -3,7 +3,7 @@ import { api, hasPermission } from './api';
 import Login from './components/Login';
 import Modal from './components/Modal';
 import ProjectTable from './components/ProjectTable';
-import { permissionSchema, projectSchema, userSchema, validationMessage } from './validation/schemas';
+import { permissionSchema, projectSchema, tenantSchema, userSchema, validationMessage } from './validation/schemas';
 import { STATUS_LABELS } from './constants';
 import { initials } from './utils';
 import './App.css';
@@ -33,6 +33,12 @@ function App() {
     if (!user || user.role === 'AGENT') return;
     const data = await api.getPermissions();
     setPermissions(data);
+  }, [user]);
+
+  const refreshTenants = useCallback(async () => {
+    if (!user || user.role === 'AGENT') return;
+    const data = await api.getTenants();
+    setTenants(data);
   }, [user]);
 
   useEffect(() => {
@@ -98,9 +104,9 @@ function App() {
 
   const navItems = [
     'Overview',
-    'Projects',
-    ...(user.role !== 'AGENT' ? ['People'] : []),
-    ...(user.role === 'SUPER_ADMIN' ? ['Permissions'] : []),
+    ...(hasPermission(user, 'projects.read') ? ['Projects'] : []),
+    ...(user.role !== 'AGENT' && hasPermission(user, 'users.read') ? ['People'] : []),
+    ...(user.role === 'SUPER_ADMIN' && hasPermission(user, 'permissions.manage') ? ['Permissions'] : []),
   ];
 
   return (
@@ -108,7 +114,7 @@ function App() {
       <aside className="sidebar">
         <div className="brand">
           <span className="brand-mark">N</span>
-          <span>northstar</span>
+          <span>Project Stack</span>
         </div>
         <div className="workspace-switcher">
           <span className="workspace-dot" />
@@ -163,7 +169,7 @@ function App() {
               onCreate={() => setActiveView('Projects')}
             />
           )}
-          {activeView === 'Projects' && (
+          {activeView === 'Projects' && hasPermission(user, 'projects.read') && (
             <ProjectsView
               user={user}
               projects={projects}
@@ -171,7 +177,7 @@ function App() {
               onRefresh={refreshProjects}
             />
           )}
-          {activeView === 'People' && (
+          {activeView === 'People' && user.role !== 'AGENT' && hasPermission(user, 'users.read') && (
             <PeopleView
               user={user}
               users={users}
@@ -180,10 +186,11 @@ function App() {
               onRefresh={async () => {
                 await refreshUsers();
                 await refreshPermissions();
+                await refreshTenants();
               }}
             />
           )}
-          {activeView === 'Permissions' && (
+          {activeView === 'Permissions' && user.role === 'SUPER_ADMIN' && hasPermission(user, 'permissions.manage') && (
             <PermissionsView
               permissions={permissions}
               onRefresh={refreshPermissions}
@@ -395,6 +402,8 @@ function ProjectsView({ user, projects, tenants, onRefresh }) {
 
 function PeopleView({ user, users, tenants, permissions, onRefresh }) {
   const [showCreate, setShowCreate] = useState(false);
+  const [showCreateTenant, setShowCreateTenant] = useState(false);
+  const [showAssignAdmin, setShowAssignAdmin] = useState(false);
   const [editingPerms, setEditingPerms] = useState(null);
   const [error, setError] = useState('');
 
@@ -403,6 +412,44 @@ function PeopleView({ user, users, tenants, permissions, onRefresh }) {
     if (user.role === 'SUPER_ADMIN') return u.role !== 'SUPER_ADMIN' || u.id === user.id;
     return u.role === 'AGENT';
   });
+  const unassignedAdmins = users.filter((u) => u.role === 'ADMIN' && !u.tenantId);
+
+  async function handleCreateTenant(event) {
+    event.preventDefault();
+    setError('');
+    const form = new FormData(event.currentTarget);
+    const validation = tenantSchema.safeParse({ name: form.get('name'), slug: form.get('slug') });
+    if (!validation.success) {
+      setError(validationMessage(validation));
+      return;
+    }
+    try {
+      await api.createTenant(validation.data);
+      setShowCreateTenant(false);
+      await onRefresh();
+    } catch (err) {
+      setError(err.message);
+    }
+  }
+
+  async function handleAssignAdmin(event) {
+    event.preventDefault();
+    setError('');
+    const form = new FormData(event.currentTarget);
+    const adminId = form.get('adminId');
+    const tenantId = form.get('tenantId');
+    if (!adminId || !tenantId) {
+      setError('Select an Admin and tenant');
+      return;
+    }
+    try {
+      await api.assignUserTenant(adminId, tenantId);
+      setShowAssignAdmin(false);
+      await onRefresh();
+    } catch (err) {
+      setError(err.message);
+    }
+  }
 
   async function handleCreate(event) {
     event.preventDefault();
@@ -468,9 +515,15 @@ function PeopleView({ user, users, tenants, permissions, onRefresh }) {
               : 'Create and manage Agents in your workspace.'}
           </p>
         </div>
-        <button className="primary-button" onClick={() => setShowCreate(true)}>
-          <span>＋</span> Add {creatableRole === 'ADMIN' ? 'admin' : 'agent'}
-        </button>
+        <div className="heading-actions">
+          {user.role === 'SUPER_ADMIN' && <>
+            <button className="secondary-button" onClick={() => setShowCreateTenant(true)}>＋ Create tenant</button>
+            <button className="secondary-button" onClick={() => setShowAssignAdmin(true)} disabled={!unassignedAdmins.length}>Assign admin</button>
+          </>}
+          <button className="primary-button" onClick={() => setShowCreate(true)}>
+            <span>＋</span> Add {creatableRole === 'ADMIN' ? 'admin' : 'agent'}
+          </button>
+        </div>
       </section>
 
       {error && <p className="banner-error">{error}</p>}
@@ -530,8 +583,8 @@ function PeopleView({ user, users, tenants, permissions, onRefresh }) {
             <label>Password<input name="password" type="password" required minLength={8} placeholder="Min 8 characters" /></label>
             {user.role === 'SUPER_ADMIN' && (
               <label>Tenant
-                <select name="tenantId" required defaultValue="">
-                  <option value="" disabled>Select tenant</option>
+                <select name="tenantId" defaultValue="">
+                  <option value="">Unassigned</option>
                   {tenants.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
                 </select>
               </label>
@@ -568,6 +621,36 @@ function PeopleView({ user, users, tenants, permissions, onRefresh }) {
               ))}
             </fieldset>
             <button className="primary-button" type="submit">Save permissions</button>
+          </form>
+        </Modal>
+      )}
+
+      {showCreateTenant && (
+        <Modal title="Create tenant" onClose={() => setShowCreateTenant(false)}>
+          <form onSubmit={handleCreateTenant}>
+            <label>Tenant name<input name="name" required placeholder="e.g. Tenant A" /></label>
+            <label>Tenant slug<input name="slug" required placeholder="tenant-a" /></label>
+            <button className="primary-button" type="submit">Create tenant</button>
+          </form>
+        </Modal>
+      )}
+
+      {showAssignAdmin && (
+        <Modal title="Assign Admin to tenant" onClose={() => setShowAssignAdmin(false)}>
+          <form onSubmit={handleAssignAdmin}>
+            <label>Admin
+              <select name="adminId" required defaultValue="">
+                <option value="" disabled>Select an Admin</option>
+                {unassignedAdmins.map((admin) => <option key={admin.id} value={admin.id}>{admin.name} ({admin.email})</option>)}
+              </select>
+            </label>
+            <label>Tenant
+              <select name="tenantId" required defaultValue="">
+                <option value="" disabled>Select tenant</option>
+                {tenants.map((tenant) => <option key={tenant.id} value={tenant.id}>{tenant.name}</option>)}
+              </select>
+            </label>
+            <button className="primary-button" type="submit">Assign Admin</button>
           </form>
         </Modal>
       )}

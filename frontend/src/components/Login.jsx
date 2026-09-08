@@ -41,7 +41,7 @@ export default function Login({ onLogin, onRegister, error, setError }) {
     <main className="login-page">
       <div className="login-art">
         <div className="art-copy">
-          <div className="brand light"><span className="brand-mark">N</span><span>northstar</span></div>
+          <div className="brand light"><span className="brand-mark">P</span><span>Project Stack</span></div>
           <h1>Make progress<br /><em>visible.</em></h1>
           <p>A multi-tenant project management workspace with role-based access control.</p>
         </div>

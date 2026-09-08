@@ -4,8 +4,10 @@ const { jwtSecret } = require('../config');
 const { sendError } = require('../utils/response');
 
 async function authenticate(req, res, next) {
-  const token = req.headers.authorization?.replace('Bearer ', '');
-  if (!token) return sendError(res, 401, 'Authentication required');
+  const authorization = req.headers.authorization || '';
+  const match = authorization.match(/^Bearer\s+([^\s]+)$/i);
+  if (!match) return sendError(res, 401, 'Authentication required');
+  const token = match[1];
 
   try {
     const claims = jwt.verify(token, jwtSecret);

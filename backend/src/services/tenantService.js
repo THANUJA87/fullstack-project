@@ -17,11 +17,20 @@ async function createTenant({ name, slug }) {
     throw error;
   }
 
-  const result = await pool.query(
-    'INSERT INTO tenants (name, slug) VALUES ($1, $2) RETURNING id, name, slug, created_at AS "createdAt"',
-    [name, slug],
-  );
-  return result.rows[0];
+  try {
+    const result = await pool.query(
+      'INSERT INTO tenants (name, slug) VALUES ($1, $2) RETURNING id, name, slug, created_at AS "createdAt"',
+      [name, slug],
+    );
+    return result.rows[0];
+  } catch (err) {
+    if (err.code === '23505') {
+      const error = new Error('Tenant slug already exists');
+      error.status = 409;
+      throw error;
+    }
+    throw err;
+  }
 }
 
 module.exports = { listTenants, createTenant };

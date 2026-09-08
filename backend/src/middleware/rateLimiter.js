@@ -6,9 +6,20 @@ const globalLimiter = rateLimit({
   standardHeaders: 'draft-8',
 });
 
-const authLimiter = rateLimit({
+const rateLimitResponse = (req, res) => {
+  res.status(429).json({ error: 'Too many requests, please try again later.' });
+};
+
+const loginLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   limit: 5,
+  handler: rateLimitResponse,
 });
 
-module.exports = { globalLimiter, authLimiter };
+const registrationLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 10,
+  handler: rateLimitResponse,
+});
+
+module.exports = { globalLimiter, loginLimiter, registrationLimiter };

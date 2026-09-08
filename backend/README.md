@@ -1,34 +1,53 @@
-# Northstar API
+# Project Stack API
 
 Multi-tenant project management REST API with JWT authentication, RBAC, permission-based authorization, tenant isolation, and rate limiting.
 
 ## Setup
 
-1. Create a PostgreSQL database named `northstar`.
-2. Copy `.env.example` to `.env` and set `DATABASE_URL` and `JWT_SECRET`.
+1. Create a fresh PostgreSQL database named `fullstack`.
+2. Copy `.env.example` to `.env` and set database credentials and a long random `JWT_SECRET`.
 3. Run `npm install`, then `npm run dev`.
 
-With `AUTO_SEED=true`, the API creates the schema and permission catalog on startup. It does not create users or sample projects.
+With `AUTO_SEED=true`, the API creates the UUID/RBAC/RLS schema and seed fixtures on startup. Use a fresh database for this schema because it replaces the earlier integer project model.
 
 ## API endpoints
 
 | Method | Path | Access |
 |---|---|---|
 | POST | `/api/auth/login` | Public (rate limited) |
-| POST | `/api/auth/register` | Public (rate limited); creates an AGENT account in a new tenant |
+| POST | `/api/auth/register` | Public (rate limited); creates an unassigned AGENT |
 | GET | `/api/me` | Authenticated |
-| GET/POST | `/api/tenants` | Super Admin |
-| GET/POST/PATCH/DELETE | `/api/projects` | Role + permissions |
-| GET/POST/PATCH | `/api/users` | Super Admin / Admin |
-| PATCH | `/api/users/:id/status` | Super Admin / Admin |
-| PUT | `/api/users/:id/permissions` | Super Admin / Admin |
-| GET/POST/DELETE | `/api/permissions` | Super Admin |
+| GET/POST | `/api/tenants` | `users.read`; create requires Super Admin + `permissions.manage` |
+| GET/POST/GET/PATCH/PUT/DELETE | `/api/projects` | `projects.read/create/update/delete` |
+| GET/POST/PUT/PATCH | `/api/users` | `users.read/create/update/disable` |
+| PATCH | `/api/users/:id/tenant` | `users.update`; tenant-scoped for Admins |
+| PUT | `/api/users/:id/permissions` | `users.update`; Agents only |
+| GET/POST/DELETE | `/api/permissions` | Super Admin + `permissions.manage` |
+| GET/PUT | `/api/permissions/roles/:role/permissions` | Super Admin + `permissions.manage`; ADMIN only may be changed |
 
 ## Authorization model
 
-- **Super Admin** — Cross-tenant access; creates Admins; manages permission catalog.
-- **Admin** — Single tenant; full project CRUD; creates/disables Agents; assigns Agent permissions.
-- **Agent** — Single tenant; view projects; create/update/delete only with explicit permissions.
+- **Super Admin** — Cross-tenant access; manages users, tenants, permissions, and Admin role permissions.
+- **Admin** — Single tenant; manages Agents and projects according to current role permissions; cannot create Admins.
+- **Agent** — Single tenant; starts with no role permissions and can receive explicit user permissions.
+
+## Security model
+
+JWTs contain only `userId`, `role`, and `tenantId`. Every authenticated request reloads the active user and effective permissions from PostgreSQL, so disabling a user or changing permissions takes effect immediately. Public registration ignores role, tenant, and permission fields and always creates an unassigned `AGENT`.
+
+Project queries enforce tenant ownership in the service and run inside a transaction with `SET LOCAL` PostgreSQL context values. RLS policies provide defense in depth for `projects`, `users`, and `tenants`; application authorization remains mandatory. Super Admin cross-tenant context is selected by the backend from the authenticated database role, never from request input.
+
+## Seed users
+
+All development seed users use `password123`:
+
+| Email | Role | Tenant |
+|---|---|---|
+| `super@example.com` | SUPER_ADMIN | all tenants |
+| `admin.a@example.com` | ADMIN | Tenant A |
+| `agent.a1@example.com` | AGENT | Tenant A; projects.read/update |
+| `admin.b@example.com` | ADMIN | Tenant B |
+| `agent.b1@example.com` | AGENT | Tenant B; projects.read |
 
 ## Project structure
 
@@ -51,6 +70,7 @@ backend/
 
 - JWT tokens (8h expiry)
 - bcrypt password hashing
-- Global rate limit: 200 req / 15 min
-- Auth rate limit: 20 req / 15 min
-- Tenant-scoped SQL queries for all data access
+- Global rate limit: 100 req / minute / IP
+- Login and registration rate limit: 5 req / 15 minutes / IP
+- Passwords are bcrypt hashes and hashes are never returned
+- Parameterized SQL and centralized error responses

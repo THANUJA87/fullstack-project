@@ -71,7 +71,7 @@ async function createUser(actor, data) {
     error.status = 403;
     throw error;
   }
-  if (!tenantId) {
+  if (!tenantId && !(actor.role === 'SUPER_ADMIN' && role === 'ADMIN')) {
     const error = new Error('Tenant is required');
     error.status = 400;
     throw error;
@@ -85,11 +85,13 @@ async function createUser(actor, data) {
     throw error;
   }
 
-  const tenantCheck = await pool.query('SELECT id FROM tenants WHERE id = $1', [tenantId]);
-  if (!tenantCheck.rowCount) {
-    const error = new Error('Tenant not found');
-    error.status = 400;
-    throw error;
+  if (tenantId) {
+    const tenantCheck = await pool.query('SELECT id FROM tenants WHERE id = $1', [tenantId]);
+    if (!tenantCheck.rowCount) {
+      const error = new Error('Tenant not found');
+      error.status = 400;
+      throw error;
+    }
   }
 
   const passwordHash = await bcrypt.hash(password, 10);

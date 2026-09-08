@@ -34,6 +34,11 @@ export const permissionSchema = z.object({
   label: requiredText('Permission label'),
 });
 
+export const tenantSchema = z.object({
+  name: requiredText('Tenant name'),
+  slug: z.string().trim().regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, 'Use lowercase letters, numbers, and hyphens'),
+});
+
 export function validationMessage(result) {
   return result.success ? '' : result.error.issues[0]?.message || 'Please check the form';
 }

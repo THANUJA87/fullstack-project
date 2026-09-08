@@ -3,8 +3,72 @@ const path = require('path');
 const bcrypt = require('bcryptjs');
 const pool = require('../config/database');
 
+async function migrateLegacySchema() {
+  const legacyCheck = await pool.query(
+    `SELECT 1 FROM information_schema.columns
+     WHERE table_name = 'projects' AND column_name = 'address'`,
+  );
+  if (legacyCheck.rowCount) return;
+
+  const projectsTable = await pool.query(
+    `SELECT 1 FROM information_schema.tables WHERE table_name = 'projects'`,
+  );
+  if (!projectsTable.rowCount) return;
+
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    await client.query('ALTER TABLE user_permissions RENAME TO legacy_user_permissions');
+    await client.query('ALTER TABLE projects RENAME TO legacy_projects');
+    await client.query('ALTER TABLE users RENAME TO legacy_users');
+    await client.query('ALTER TABLE permissions RENAME TO legacy_permissions');
+    await client.query('ALTER TABLE tenants RENAME TO legacy_tenants');
+    await client.query(fs.readFileSync(path.join(__dirname, '../../db/schema.sql'), 'utf8'));
+
+    await client.query(`
+      CREATE TEMP TABLE tenant_map (old_id INTEGER PRIMARY KEY, new_id UUID NOT NULL)
+      ON COMMIT DROP;
+      INSERT INTO tenant_map SELECT id, gen_random_uuid() FROM legacy_tenants;
+      INSERT INTO tenants (id, name, slug)
+      SELECT tm.new_id, lt.name, lt.slug FROM legacy_tenants lt JOIN tenant_map tm ON tm.old_id = lt.id;
+
+      INSERT INTO permissions (key, label)
+      SELECT REPLACE(key, ':', '.'), label FROM legacy_permissions ON CONFLICT DO NOTHING;
+
+      CREATE TEMP TABLE user_map (old_id INTEGER PRIMARY KEY, new_id UUID NOT NULL)
+      ON COMMIT DROP;
+      INSERT INTO user_map SELECT id, gen_random_uuid() FROM legacy_users;
+      INSERT INTO users (id, tenant_id, name, email, password_hash, role, is_active, created_at)
+      SELECT um.new_id, tm.new_id, lu.name, lu.email, lu.password_hash, lu.role, lu.is_active, lu.created_at
+      FROM legacy_users lu JOIN user_map um ON um.old_id = lu.id
+      LEFT JOIN tenant_map tm ON tm.old_id = lu.tenant_id;
+
+      INSERT INTO user_permissions (user_id, permission_key)
+      SELECT um.new_id, REPLACE(lup.permission_key, ':', '.')
+      FROM legacy_user_permissions lup JOIN user_map um ON um.old_id = lup.user_id
+      ON CONFLICT DO NOTHING;
+
+      INSERT INTO projects (name, address, use_case, status, tenant_id, owner_id, created_at, updated_at)
+      SELECT lp.name, COALESCE(NULLIF(lp.description, ''), 'Legacy project'),
+             COALESCE(NULLIF(lp.description, ''), 'Legacy project'),
+             CASE lp.status WHEN 'COMPLETED' THEN 'INACTIVE' WHEN 'IN_PROGRESS' THEN 'ACTIVE' ELSE 'DRAFT' END,
+             tm.new_id, um.new_id, lp.created_at, lp.updated_at
+      FROM legacy_projects lp JOIN tenant_map tm ON tm.old_id = lp.tenant_id
+      LEFT JOIN user_map um ON um.old_id = lp.owner_id;
+    `);
+    await client.query('DROP TABLE legacy_user_permissions, legacy_projects, legacy_users, legacy_permissions, legacy_tenants CASCADE');
+    await client.query('COMMIT');
+  } catch (error) {
+    await client.query('ROLLBACK');
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
 async function seedDatabase() {
   const schemaPath = path.join(__dirname, '../../db/schema.sql');
+  await migrateLegacySchema();
   await pool.query(fs.readFileSync(schemaPath, 'utf8'));
 
   await pool.query(`
@@ -79,24 +143,21 @@ async function seedDatabase() {
   }
 
   await pool.query(`
-    INSERT INTO projects (tenant_id, name, address, use_case, status, owner_id)
-    SELECT $1, 'Project A1', '100 Northstar Avenue', 'Customer workspace', 'ACTIVE', u.id
-    FROM users u WHERE u.email = 'admin.a@example.com'
-      AND NOT EXISTS (SELECT 1 FROM projects WHERE name = 'Project A1' AND tenant_id = $1)
+    INSERT INTO projects (tenant_id, name, address, use_case, status)
+    SELECT $1, 'Project A1', '100 Project Stack Avenue', 'Customer workspace', 'ACTIVE'
+    WHERE NOT EXISTS (SELECT 1 FROM projects WHERE name = 'Project A1' AND tenant_id = $1)
   `, [tenantIds['tenant-a']]);
 
   await pool.query(`
-    INSERT INTO projects (tenant_id, name, address, use_case, status, owner_id)
-    SELECT $1, 'Project A2', '200 Northstar Avenue', 'Reporting', 'DRAFT', u.id
-    FROM users u WHERE u.email = 'admin.a@example.com'
-      AND NOT EXISTS (SELECT 1 FROM projects WHERE name = 'Project A2' AND tenant_id = $1)
+    INSERT INTO projects (tenant_id, name, address, use_case, status)
+    SELECT $1, 'Project A2', '200 Project Stack Avenue', 'Reporting', 'DRAFT'
+    WHERE NOT EXISTS (SELECT 1 FROM projects WHERE name = 'Project A2' AND tenant_id = $1)
   `, [tenantIds['tenant-a']]);
 
   await pool.query(`
-    INSERT INTO projects (tenant_id, name, address, use_case, status, owner_id)
-    SELECT $1, 'Project B1', '300 Acme Road', 'Operations', 'ACTIVE', u.id
-    FROM users u WHERE u.email = 'admin.b@example.com'
-      AND NOT EXISTS (SELECT 1 FROM projects WHERE name = 'Project B1' AND tenant_id = $1)
+    INSERT INTO projects (tenant_id, name, address, use_case, status)
+    SELECT $1, 'Project B1', '300 Acme Road', 'Operations', 'ACTIVE'
+    WHERE NOT EXISTS (SELECT 1 FROM projects WHERE name = 'Project B1' AND tenant_id = $1)
   `, [tenantIds['tenant-b']]);
 }
 

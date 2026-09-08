@@ -1,7 +1,8 @@
-const { validate: isUuid } = require('uuid');
 const pool = require('../config/database');
 
 const VALID_STATUSES = ['ACTIVE', 'INACTIVE', 'DRAFT'];
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const isUuid = (value) => typeof value === 'string' && UUID_PATTERN.test(value);
 
 function badRequest(message) {
   const error = new Error(message);
@@ -54,11 +55,12 @@ async function withTenantContext(user, work) {
 
 async function listProjects(user) {
   return withTenantContext(user, async (client) => {
+    const scope = user.role === 'SUPER_ADMIN' ? { sql: '', values: [] } : { sql: 'WHERE p.tenant_id = $1', values: [user.tenantId] };
     const result = await client.query(
-      `SELECT p.*, t.name AS tenant_name, u.name AS owner_name
+      `SELECT p.*, t.name AS tenant_name
        FROM projects p JOIN tenants t ON t.id = p.tenant_id
-       LEFT JOIN users u ON u.id = p.owner_id
-       ORDER BY p.updated_at DESC`,
+       ${scope.sql} ORDER BY p.updated_at DESC`,
+      scope.values,
     );
     return result.rows;
   });
@@ -67,11 +69,12 @@ async function listProjects(user) {
 async function getProject(user, id) {
   validateProjectId(id);
   return withTenantContext(user, async (client) => {
+    const scope = user.role === 'SUPER_ADMIN' ? { sql: '', values: [id] } : { sql: ' AND p.tenant_id = $2', values: [id, user.tenantId] };
     const result = await client.query(
-      `SELECT p.*, t.name AS tenant_name, u.name AS owner_name
+      `SELECT p.*, t.name AS tenant_name
        FROM projects p JOIN tenants t ON t.id = p.tenant_id
-       LEFT JOIN users u ON u.id = p.owner_id WHERE p.id = $1`,
-      [id],
+       WHERE p.id = $1${scope.sql}`,
+      scope.values,
     );
     if (!result.rowCount) {
       const error = new Error('Project not found');
@@ -93,17 +96,17 @@ async function createProject(user, data) {
     const tenant = await client.query('SELECT id FROM tenants WHERE id = $1', [tenantId]);
     if (!tenant.rowCount) throw badRequest('Tenant not found');
     const result = await client.query(
-      `INSERT INTO projects (name, address, use_case, status, tenant_id, owner_id)
-       VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
-      [input.name, input.address, input.useCase, input.status || 'DRAFT', tenantId, user.id],
+      `INSERT INTO projects (name, address, use_case, status, tenant_id)
+       VALUES ($1, $2, $3, $4, $5) RETURNING *`,
+      [input.name, input.address, input.useCase, input.status || 'DRAFT', tenantId],
     );
     return result.rows[0];
   });
 }
 
-async function updateProject(user, id, data) {
+async function updateProject(user, id, data, partial = true) {
   validateProjectId(id);
-  const input = projectInput(data, true);
+  const input = projectInput(data, partial);
   const fields = [];
   const values = [];
   for (const [column, value] of [['name', input.name], ['address', input.address], ['use_case', input.useCase], ['status', input.status]]) {
@@ -113,12 +116,15 @@ async function updateProject(user, id, data) {
     }
   }
   if (!fields.length) throw badRequest('No valid fields to update');
+  const idParam = values.length + 1;
   values.push(id);
+  const tenantSql = user.role === 'SUPER_ADMIN' ? '' : ` AND tenant_id = $${values.length + 1}`;
+  if (user.role !== 'SUPER_ADMIN') values.push(user.tenantId);
 
   return withTenantContext(user, async (client) => {
     const result = await client.query(
       `UPDATE projects SET ${fields.join(', ')}, updated_at = NOW()
-       WHERE id = $${values.length} RETURNING *`,
+       WHERE id = $${idParam}${tenantSql} RETURNING *`,
       values,
     );
     if (!result.rowCount) {
@@ -133,7 +139,8 @@ async function updateProject(user, id, data) {
 async function deleteProject(user, id) {
   validateProjectId(id);
   return withTenantContext(user, async (client) => {
-    const result = await client.query('DELETE FROM projects WHERE id = $1', [id]);
+    const scope = user.role === 'SUPER_ADMIN' ? { sql: '', values: [id] } : { sql: ' AND tenant_id = $2', values: [id, user.tenantId] };
+    const result = await client.query(`DELETE FROM projects WHERE id = $1${scope.sql}`, scope.values);
     if (!result.rowCount) {
       const error = new Error('Project not found');
       error.status = 404;

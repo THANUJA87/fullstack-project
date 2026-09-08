@@ -1,5 +1,4 @@
 import { STATUS_LABELS } from '../constants';
-import { initials } from '../utils';
 
 export default function ProjectTable({ projects, user, canUpdate, canDelete, onEdit, onDelete, compact }) {
   return (
@@ -11,7 +10,6 @@ export default function ProjectTable({ projects, user, canUpdate, canDelete, onE
             {user.role === 'SUPER_ADMIN' && <th>Workspace</th>}
             <th>Status</th>
             <th>Address</th>
-            <th>Owner</th>
             {!compact && (canUpdate || canDelete) && <th />}
           </tr>
         </thead>
@@ -27,7 +25,6 @@ export default function ProjectTable({ projects, user, canUpdate, canDelete, onE
               {user.role === 'SUPER_ADMIN' && <td><span className="workspace-label">{project.tenant_name}</span></td>}
               <td><span className={`status ${project.status.toLowerCase()}`}><i />{STATUS_LABELS[project.status]}</span></td>
               <td>{project.address}</td>
-              <td><span className="owner"><span className="avatar tiny">{initials(project.owner_name)}</span>{project.owner_name || '—'}</span></td>
               {!compact && (canUpdate || canDelete) && (
                 <td className="actions-cell">
                   {canUpdate && <button className="text-button" onClick={() => onEdit?.(project)}>Edit</button>}

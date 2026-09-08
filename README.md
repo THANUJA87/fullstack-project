@@ -1,4 +1,4 @@
-# Northstar — Multi-Tenant Project Management
+# Project Stack — Multi-Tenant Project Management
 
 A full-stack project management application with authentication, role-based access control (RBAC), permission-based authorization, and tenant isolation.
 
@@ -27,7 +27,7 @@ npm install
 npm run dev
 ```
 
-The API runs at `http://localhost:4000`. With `AUTO_SEED=true`, the schema and permission catalog are created automatically. The first user can create a workspace from the frontend.
+The API runs at `http://localhost:4000`. With `AUTO_SEED=true`, the UUID/RBAC/RLS schema and assignment seed fixtures are created automatically. Use a fresh PostgreSQL database for the new schema.
 
 ### 3. Frontend
 
@@ -41,14 +41,14 @@ Open `http://localhost:5173`.
 
 ## Account creation
 
-The sign-in screen supports creating an account. Public registration always creates an `AGENT`; role and permission changes remain protected administrative operations.
+The sign-in screen supports creating an account. Public registration always creates an unassigned `AGENT`; role, tenant, and permission changes remain protected administrative operations.
 
 ## Features
 
 - JWT authentication with bcrypt password hashing
 - Three-tier RBAC: Super Admin → Admin → Agent
-- Granular permissions for Agents (`projects:create`, `projects:update`, `projects:delete`)
-- Tenant isolation enforced at the database query level
+- Permission-based authorization for users, projects, and permission management
+- Application-level tenant isolation plus PostgreSQL RLS defense in depth
 - Project CRUD with validation
 - User management (create Admins/Agents, enable/disable, assign permissions)
 - Permission catalog management (Super Admin)
