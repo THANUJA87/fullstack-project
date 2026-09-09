@@ -156,7 +156,7 @@ export default function PermissionManagement({ permissions, onRefresh }) {
           ))}
         </div>
       )}
-      <section className="permission-catalog">
+      {/* <section className="permission-catalog">
         <div>
           <h2>Add permission</h2>
           <p className="muted">Create a permission before assigning it to a role.</p>
@@ -184,7 +184,7 @@ export default function PermissionManagement({ permissions, onRefresh }) {
             Add permission
           </button>
         </form>
-      </section>
+      </section> */}
     </>
   );
 }
